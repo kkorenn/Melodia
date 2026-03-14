@@ -1367,18 +1367,37 @@ app.get("/api/views/active-artists", (req, res) => {
 
   const rows = db
     .prepare(
-      `SELECT
-        ${ARTIST_EXPR} AS artist,
-        COUNT(*) AS recentPlays,
-        COUNT(DISTINCT ph.song_id) AS uniqueSongs,
-        MAX(ph.played_at) AS lastPlayed,
-        SUM(COALESCE(s.play_count, 0)) AS totalPlays,
-        MIN(s.id) AS artSongId
-      FROM play_history ph
-      INNER JOIN songs s ON s.id = ph.song_id
-      WHERE ph.played_at >= ?
-      GROUP BY ${ARTIST_EXPR}
-      ORDER BY recentPlays DESC, COALESCE(lastPlayed, 0) DESC, artist COLLATE NOCASE ASC
+      `WITH recent_activity AS (
+        SELECT
+          ${ARTIST_EXPR} AS artist,
+          COUNT(*) AS recentPlays,
+          COUNT(DISTINCT ph.song_id) AS uniqueSongs,
+          MAX(ph.played_at) AS lastPlayed,
+          MIN(s.id) AS artSongId
+        FROM play_history ph
+        INNER JOIN songs s ON s.id = ph.song_id
+        WHERE ph.played_at >= ?
+        GROUP BY ${ARTIST_EXPR}
+      ),
+      artist_totals AS (
+        SELECT
+          ${ARTIST_EXPR} AS artist,
+          SUM(COALESCE(play_count, 0)) AS totalPlays
+        FROM songs
+        GROUP BY ${ARTIST_EXPR}
+      )
+      SELECT
+        recent_activity.artist,
+        recent_activity.recentPlays,
+        recent_activity.uniqueSongs,
+        recent_activity.lastPlayed,
+        COALESCE(artist_totals.totalPlays, 0) AS totalPlays,
+        recent_activity.artSongId
+      FROM recent_activity
+      LEFT JOIN artist_totals ON artist_totals.artist = recent_activity.artist
+      ORDER BY recent_activity.recentPlays DESC,
+        COALESCE(recent_activity.lastPlayed, 0) DESC,
+        recent_activity.artist COLLATE NOCASE ASC
       LIMIT ?`
     )
     .all(sinceMs, limit);
