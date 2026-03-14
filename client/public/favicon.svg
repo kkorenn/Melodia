@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Melodia favicon">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#142238" />
+      <stop offset="100%" stop-color="#0d1729" />
+    </linearGradient>
+  </defs>
+
+  <rect x="2" y="2" width="60" height="60" rx="8" fill="url(#bg)" />
+  <rect x="2.5" y="2.5" width="59" height="59" rx="7.5" fill="none" stroke="#253753" />
+
+  <path
+    d="M43 16v24.5a7.5 7.5 0 1 1-4-6.6V22.5l-16 3.4v17.6a7.5 7.5 0 1 1-4-6.6V18.8l24-4.8z"
+    fill="none"
+    stroke="#6f84a6"
+    stroke-width="4"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+</svg>

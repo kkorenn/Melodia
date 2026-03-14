@@ -1,0 +1,186 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-shell: 5 10 16;
+  --color-panel: 14 22 34;
+  --color-panel-soft: 21 35 52;
+  --color-text: 229 238 248;
+  --color-text-soft: 147 162 184;
+  --color-accent: 20 184 166;
+  --color-accent-warm: 245 158 11;
+  --bg-main: rgb(var(--color-shell));
+  --accent-soft: rgb(var(--color-accent) / 0.22);
+  --glow-color: rgb(var(--color-accent) / 0.28);
+  --border: rgba(255, 255, 255, 0.08);
+}
+
+:root.light {
+  --color-shell: 244 248 252;
+  --color-panel: 255 255 255;
+  --color-panel-soft: 236 242 248;
+  --color-text: 12 20 32;
+  --color-text-soft: 77 98 120;
+  --color-accent: 13 148 136;
+  --color-accent-warm: 245 158 11;
+  --bg-main: rgb(var(--color-shell));
+  --accent-soft: rgb(var(--color-accent) / 0.18);
+  --glow-color: rgb(var(--color-accent) / 0.22);
+  --border: rgba(15, 23, 42, 0.08);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  width: 100%;
+  height: var(--app-height, 100dvh);
+  min-height: var(--app-height, 100dvh);
+}
+
+body {
+  background: var(--bg-main);
+  color: rgb(var(--color-text));
+  font-family: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  overflow: hidden;
+}
+
+::-webkit-scrollbar {
+  width: 11px;
+  height: 11px;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: var(--accent-soft);
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-track {
+  background-color: transparent;
+}
+
+.volume-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 16px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.volume-slider:focus-visible {
+  outline: none;
+}
+
+.volume-slider::-webkit-slider-runnable-track {
+  -webkit-appearance: none;
+  height: 4px;
+  background: linear-gradient(
+    to right,
+    rgb(var(--color-accent)) 0%,
+    rgb(var(--color-accent)) var(--range-progress, 50%),
+    rgb(var(--color-panel-soft)) var(--range-progress, 50%),
+    rgb(var(--color-panel-soft)) 100%
+  );
+  border-radius: 999px;
+}
+
+.volume-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 10px;
+  height: 10px;
+  margin-top: -3px;
+  border-radius: 999px;
+  background: rgb(var(--color-text));
+  border: none;
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.4);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.volume-slider::-moz-range-track {
+  height: 4px;
+  border: none;
+  background: rgb(var(--color-panel-soft));
+  border-radius: 999px;
+}
+
+.volume-slider::-moz-range-progress {
+  height: 4px;
+  border-radius: 999px;
+  background: rgb(var(--color-accent));
+}
+
+.volume-slider::-moz-range-thumb {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  border: none;
+  background: rgb(var(--color-text));
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.4);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.volume-slider:hover::-webkit-slider-thumb,
+.volume-slider:focus-visible::-webkit-slider-thumb {
+  opacity: 1;
+}
+
+.volume-slider:hover::-moz-range-thumb,
+.volume-slider:focus-visible::-moz-range-thumb {
+  opacity: 1;
+}
+
+@layer utilities {
+  @keyframes view-mode-content-in {
+    0% {
+      opacity: 0;
+      transform: translate3d(0, 10px, 0) scale(0.985);
+    }
+    100% {
+      opacity: 1;
+      transform: translate3d(0, 0, 0) scale(1);
+    }
+  }
+
+  @keyframes view-mode-item-in {
+    0% {
+      opacity: 0;
+      transform: translate3d(0, 8px, 0) scale(0.985);
+    }
+    100% {
+      opacity: 1;
+      transform: translate3d(0, 0, 0) scale(1);
+    }
+  }
+
+  .view-mode-viewport {
+    transform-origin: top center;
+    animation: view-mode-content-in 210ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    will-change: transform, opacity;
+  }
+
+  .view-mode-item {
+    transform-origin: center top;
+    animation: view-mode-item-in 190ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: calc(var(--vm-item-index, 0) * 10ms);
+    will-change: transform, opacity;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .view-mode-viewport,
+  .view-mode-item {
+    animation-duration: 1ms !important;
+    animation-delay: 0ms !important;
+  }
+}

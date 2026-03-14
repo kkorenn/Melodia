@@ -1,0 +1,29 @@
+{
+  "name": "melodia",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "server",
+    "client"
+  ],
+  "scripts": {
+    "setup": "node scripts/cli.js setup",
+    "run": "node scripts/cli.js run",
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "dev:server": "npm --prefix server run dev",
+    "dev:client": "npm --prefix client run dev",
+    "build": "npm run build:server && npm run build:client",
+    "build:server": "npm --prefix server run build",
+    "build:client": "npm --prefix client run build",
+    "host": "node scripts/cli.js host",
+    "release:reset": "node scripts/cli.js release-reset",
+    "release:reset:yes": "node scripts/cli.js release-reset --yes",
+    "scripts:help": "node scripts/cli.js --help",
+    "start": "npm run dev",
+    "settings:hash": "node scripts/generate-settings-password-hash.js",
+    "prisma:generate": "npm --prefix server run prisma:generate"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
