@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  ArrowUpDown,
   Check,
   ImagePlus,
   PencilLine,
@@ -25,9 +24,14 @@ import {
 import { getPlaylistWriteErrorMessage } from "../lib/playlistErrors";
 import { PlaylistArt } from "../components/PlaylistArt";
 import { CoverArt } from "../components/CoverArt";
+import { SettingsLockedNotice } from "../components/SettingsLockedNotice";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { useDebouncedValue } from "../hooks/useDebouncedValue";
+import {
+  isSettingsAuthRequiredError,
+  useSettingsAccess
+} from "../hooks/useSettingsAccess";
 import { useSongActions } from "../hooks/useSongActions";
 import { usePlayerStore, selectCurrentSong } from "../store/playerStore";
 
@@ -55,8 +59,21 @@ export function PlaylistDetailPage() {
 
   const currentSongId = usePlayerStore((state) => selectCurrentSong(state)?.id);
   const { playSong } = useSongActions();
+  const {
+    loading: permissionLoading,
+    canManageProtectedActions,
+    markLocked
+  } = useSettingsAccess();
+  const canEditPlaylist = !permissionLoading && canManageProtectedActions;
 
   const songIdsInPlaylist = useMemo(() => new Set(songs.map((song) => song.id)), [songs]);
+
+  const handlePlaylistWriteError = (err, fallbackMessage) => {
+    if (isSettingsAuthRequiredError(err)) {
+      markLocked();
+    }
+    setError(getPlaylistWriteErrorMessage(err, fallbackMessage));
+  };
 
   const loadPlaylist = (signal) => {
     if (!Number.isFinite(playlistId)) {
@@ -144,7 +161,7 @@ export function PlaylistDetailPage() {
 
   const saveName = () => {
     const trimmed = nameDraft.trim();
-    if (!trimmed || !playlist || savingName || trimmed === playlist.name) {
+    if (!trimmed || !playlist || savingName || trimmed === playlist.name || !canEditPlaylist) {
       return;
     }
 
@@ -152,15 +169,13 @@ export function PlaylistDetailPage() {
     setError("");
     updatePlaylist(playlist.id, { name: trimmed })
       .then(() => refreshPlaylistOnly())
-      .catch((err) =>
-        setError(getPlaylistWriteErrorMessage(err, "Could not rename playlist"))
-      )
+      .catch((err) => handlePlaylistWriteError(err, "Could not rename playlist"))
       .finally(() => setSavingName(false));
   };
 
   const onCoverFileChange = (event) => {
     const file = event.target.files?.[0];
-    if (!file || !playlist || uploadingCover) {
+    if (!file || !playlist || uploadingCover || !canEditPlaylist) {
       return;
     }
 
@@ -172,9 +187,7 @@ export function PlaylistDetailPage() {
       const dataUrl = typeof reader.result === "string" ? reader.result : "";
       setPlaylistCover(playlist.id, dataUrl)
         .then(() => refreshPlaylistOnly())
-        .catch((err) =>
-          setError(getPlaylistWriteErrorMessage(err, "Could not update cover art"))
-        )
+        .catch((err) => handlePlaylistWriteError(err, "Could not update cover art"))
         .finally(() => {
           setUploadingCover(false);
           event.target.value = "";
@@ -191,7 +204,7 @@ export function PlaylistDetailPage() {
   };
 
   const removeCustomCover = () => {
-    if (!playlist || uploadingCover) {
+    if (!playlist || uploadingCover || !canEditPlaylist) {
       return;
     }
 
@@ -199,14 +212,12 @@ export function PlaylistDetailPage() {
     setError("");
     clearPlaylistCover(playlist.id)
       .then(() => refreshPlaylistOnly())
-      .catch((err) =>
-        setError(getPlaylistWriteErrorMessage(err, "Could not clear cover art"))
-      )
+      .catch((err) => handlePlaylistWriteError(err, "Could not clear cover art"))
       .finally(() => setUploadingCover(false));
   };
 
   const addSong = (songId) => {
-    if (!playlist || updatingSongs) {
+    if (!playlist || updatingSongs || !canEditPlaylist) {
       return;
     }
 
@@ -214,14 +225,12 @@ export function PlaylistDetailPage() {
     setError("");
     addSongToPlaylist(playlist.id, songId)
       .then(() => refreshPlaylistOnly())
-      .catch((err) =>
-        setError(getPlaylistWriteErrorMessage(err, "Could not add song to playlist"))
-      )
+      .catch((err) => handlePlaylistWriteError(err, "Could not add song to playlist"))
       .finally(() => setUpdatingSongs(false));
   };
 
   const removeSong = (songId) => {
-    if (!playlist || updatingSongs) {
+    if (!playlist || updatingSongs || !canEditPlaylist) {
       return;
     }
 
@@ -229,14 +238,12 @@ export function PlaylistDetailPage() {
     setError("");
     removeSongFromPlaylist(playlist.id, songId)
       .then(() => refreshPlaylistOnly())
-      .catch((err) =>
-        setError(getPlaylistWriteErrorMessage(err, "Could not remove song"))
-      )
+      .catch((err) => handlePlaylistWriteError(err, "Could not remove song"))
       .finally(() => setUpdatingSongs(false));
   };
 
   const destroyPlaylist = () => {
-    if (!playlist || deleting) {
+    if (!playlist || deleting || !canEditPlaylist) {
       return;
     }
 
@@ -245,24 +252,34 @@ export function PlaylistDetailPage() {
     deletePlaylist(playlist.id)
       .then(() => navigate("/playlists"))
       .catch((err) => {
-        setError(getPlaylistWriteErrorMessage(err, "Could not delete playlist"));
+        handlePlaylistWriteError(err, "Could not delete playlist");
         setDeleting(false);
       });
   };
 
-  const applyPlaylistSort = () => {
+  const applyPlaylistSort = (nextSortBy = sortBy, nextSortDirection = sortDirection) => {
     if (!playlist || sortingPlaylist || !songs.length) {
       return;
     }
 
     setSortingPlaylist(true);
     setError("");
-    sortPlaylistSongs(playlist.id, { by: sortBy, direction: sortDirection })
+    sortPlaylistSongs(playlist.id, { by: nextSortBy, direction: nextSortDirection })
       .then(() => refreshPlaylistOnly())
-      .catch((err) =>
-        setError(getPlaylistWriteErrorMessage(err, "Could not sort playlist"))
-      )
+      .catch((err) => handlePlaylistWriteError(err, "Could not sort playlist"))
       .finally(() => setSortingPlaylist(false));
+  };
+
+  const onSortByChange = (event) => {
+    const nextSortBy = event.target.value;
+    setSortBy(nextSortBy);
+    applyPlaylistSort(nextSortBy, sortDirection);
+  };
+
+  const onSortDirectionChange = (event) => {
+    const nextSortDirection = event.target.value;
+    setSortDirection(nextSortDirection);
+    applyPlaylistSort(sortBy, nextSortDirection);
   };
 
   if (!Number.isFinite(playlistId)) {
@@ -295,59 +312,72 @@ export function PlaylistDetailPage() {
           <div className="min-w-0 flex-1 space-y-3">
             <div className="text-xs uppercase tracking-[0.15em] text-textSoft">Playlist</div>
 
-            <div className="flex flex-wrap items-center gap-2">
-              <Input
-                value={nameDraft}
-                onChange={(event) => setNameDraft(event.target.value)}
-                className="min-w-[220px] rounded-xl text-2xl font-semibold"
-              />
-              <Button
-                type="button"
-                onClick={saveName}
-                disabled={savingName || !nameDraft.trim()}
-                variant="outline"
-                className="h-10 rounded-xl"
-              >
-                <PencilLine className="h-4 w-4" strokeWidth={2.2} aria-hidden="true" />
-                <span>{savingName ? "Saving..." : "Rename"}</span>
-              </Button>
-            </div>
+            {canEditPlaylist ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <Input
+                  value={nameDraft}
+                  onChange={(event) => setNameDraft(event.target.value)}
+                  className="min-w-[220px] rounded-xl text-2xl font-semibold"
+                />
+                <Button
+                  type="button"
+                  onClick={saveName}
+                  disabled={savingName || !nameDraft.trim()}
+                  variant="outline"
+                  className="h-10 rounded-xl"
+                >
+                  <PencilLine className="h-4 w-4" strokeWidth={2.2} aria-hidden="true" />
+                  <span>{savingName ? "Saving..." : "Rename"}</span>
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <h1 className="text-2xl font-semibold text-text">{playlist.name}</h1>
+                <SettingsLockedNotice>
+                  {permissionLoading
+                    ? "Checking playlist edit permission..."
+                    : "Unlock Settings in Settings to rename this playlist."}
+                </SettingsLockedNotice>
+              </div>
+            )}
 
             <p className="text-sm text-textSoft">{songs.length} songs</p>
 
-            <div className="flex flex-wrap gap-2">
-              <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-[color:var(--border)] px-3 py-2 text-sm text-textSoft transition hover:border-accent/40 hover:text-text">
-                <ImagePlus className="h-4 w-4" strokeWidth={2.2} aria-hidden="true" />
-                <span>{uploadingCover ? "Uploading..." : "Set Cover"}</span>
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={onCoverFileChange}
+            {canEditPlaylist && (
+              <div className="flex flex-wrap gap-2">
+                <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-[color:var(--border)] px-3 py-2 text-sm text-textSoft transition hover:border-accent/40 hover:text-text">
+                  <ImagePlus className="h-4 w-4" strokeWidth={2.2} aria-hidden="true" />
+                  <span>{uploadingCover ? "Uploading..." : "Set Cover"}</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={onCoverFileChange}
+                    disabled={uploadingCover}
+                  />
+                </label>
+                <Button
+                  type="button"
+                  onClick={removeCustomCover}
                   disabled={uploadingCover}
-                />
-              </label>
-              <Button
-                type="button"
-                onClick={removeCustomCover}
-                disabled={uploadingCover}
-                variant="outline"
-                className="h-10 rounded-xl"
-              >
-                <X className="h-4 w-4" strokeWidth={2.2} aria-hidden="true" />
-                <span>Use First Song Cover</span>
-              </Button>
-              <Button
-                type="button"
-                onClick={destroyPlaylist}
-                disabled={deleting}
-                variant="outline"
-                className="h-10 rounded-xl border-rose-400/40 text-rose-300 hover:bg-rose-500/15 hover:text-rose-200"
-              >
-                <Trash2 className="h-4 w-4" strokeWidth={2.2} aria-hidden="true" />
-                <span>{deleting ? "Deleting..." : "Delete Playlist"}</span>
-              </Button>
-            </div>
+                  variant="outline"
+                  className="h-10 rounded-xl"
+                >
+                  <X className="h-4 w-4" strokeWidth={2.2} aria-hidden="true" />
+                  <span>Use First Song Cover</span>
+                </Button>
+                <Button
+                  type="button"
+                  onClick={destroyPlaylist}
+                  disabled={deleting}
+                  variant="outline"
+                  className="h-10 rounded-xl border-rose-400/40 text-rose-300 hover:bg-rose-500/15 hover:text-rose-200"
+                >
+                  <Trash2 className="h-4 w-4" strokeWidth={2.2} aria-hidden="true" />
+                  <span>{deleting ? "Deleting..." : "Delete Playlist"}</span>
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -360,8 +390,9 @@ export function PlaylistDetailPage() {
           <div className="flex flex-wrap items-center gap-2">
             <select
               value={sortBy}
-              onChange={(event) => setSortBy(event.target.value)}
-              className="rounded-xl border border-[color:var(--border)] bg-panelSoft px-2.5 py-1.5 text-xs text-text outline-none focus:border-accent"
+              onChange={onSortByChange}
+              disabled={!songs.length || sortingPlaylist}
+              className="rounded-xl border border-[color:var(--border)] bg-panelSoft px-2.5 py-1.5 text-xs text-text outline-none focus:border-accent disabled:opacity-60"
             >
               <option value="position">Current Order</option>
               <option value="title">Title</option>
@@ -374,23 +405,13 @@ export function PlaylistDetailPage() {
             </select>
             <select
               value={sortDirection}
-              onChange={(event) => setSortDirection(event.target.value)}
-              className="rounded-xl border border-[color:var(--border)] bg-panelSoft px-2.5 py-1.5 text-xs text-text outline-none focus:border-accent"
+              onChange={onSortDirectionChange}
+              disabled={!songs.length || sortingPlaylist}
+              className="rounded-xl border border-[color:var(--border)] bg-panelSoft px-2.5 py-1.5 text-xs text-text outline-none focus:border-accent disabled:opacity-60"
             >
               <option value="asc">Ascending</option>
               <option value="desc">Descending</option>
             </select>
-            <Button
-              type="button"
-              onClick={applyPlaylistSort}
-              disabled={!songs.length || sortingPlaylist}
-              variant="outline"
-              size="sm"
-              className="h-8 rounded-xl"
-            >
-              <ArrowUpDown className="h-3.5 w-3.5" strokeWidth={2.2} aria-hidden="true" />
-              <span>{sortingPlaylist ? "Sorting..." : "Sort"}</span>
-            </Button>
             <Button
               type="button"
               onClick={() => {
@@ -439,15 +460,17 @@ export function PlaylistDetailPage() {
                 <p className="truncate text-sm font-medium text-text">{song.title || song.filename}</p>
                 <p className="truncate text-xs text-textSoft">{song.artist || "Unknown Artist"}</p>
               </button>
-              <button
-                type="button"
-                onClick={() => removeSong(song.id)}
-                disabled={updatingSongs}
-                className="inline-flex items-center gap-1 rounded-lg border border-[color:var(--border)] px-2 py-1 text-xs text-textSoft transition hover:border-accent/40 hover:text-text disabled:opacity-60"
-              >
-                <X className="h-3.5 w-3.5" strokeWidth={2.2} aria-hidden="true" />
-                <span>Remove</span>
-              </button>
+              {canEditPlaylist && (
+                <button
+                  type="button"
+                  onClick={() => removeSong(song.id)}
+                  disabled={updatingSongs}
+                  className="inline-flex items-center gap-1 rounded-lg border border-[color:var(--border)] px-2 py-1 text-xs text-textSoft transition hover:border-accent/40 hover:text-text disabled:opacity-60"
+                >
+                  <X className="h-3.5 w-3.5" strokeWidth={2.2} aria-hidden="true" />
+                  <span>Remove</span>
+                </button>
+              )}
             </div>
           ))}
         </div>
@@ -483,7 +506,7 @@ export function PlaylistDetailPage() {
                   <Check className="h-3.5 w-3.5" strokeWidth={2.2} aria-hidden="true" />
                   Added
                 </span>
-              ) : (
+              ) : canEditPlaylist ? (
                 <button
                   type="button"
                   onClick={() => addSong(song.id)}
@@ -493,7 +516,7 @@ export function PlaylistDetailPage() {
                   <Plus className="h-3.5 w-3.5" strokeWidth={2.2} aria-hidden="true" />
                   Add
                 </button>
-              )}
+              ) : null}
             </div>
           ))}
 

@@ -340,7 +340,7 @@ export function PlayerBar({ currentSong, currentTime, duration, buffered, seek, 
   }
 
   return (
-    <footer className="z-40 shrink-0 border-t border-[color:var(--border)] bg-[color:var(--bg-main)] px-3 py-2.5 pb-[max(env(safe-area-inset-bottom),0px)] md:px-6 md:py-3">
+    <footer className="z-40 shrink-0 border-t border-[color:var(--border)] bg-[color:var(--bg-main)] px-3 pt-2.5 pb-[calc(max(env(safe-area-inset-bottom),0px)+0.75rem)] md:px-6 md:py-3">
       <div className="grid grid-cols-1 items-center gap-2.5 lg:grid-cols-[300px_1fr_260px]">
         <div className="flex min-w-0 items-center gap-3">
           <div className="group relative shrink-0">

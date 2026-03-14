@@ -1772,7 +1772,7 @@ app.delete(
   }
 );
 
-app.post("/api/playlists/:playlistId/sort", requireSettingsAuth, (req, res) => {
+app.post("/api/playlists/:playlistId/sort", (req, res) => {
   const playlistId = parseId(req.params.playlistId);
   if (!playlistId) {
     return res.status(400).json({ error: "Invalid playlist id" });

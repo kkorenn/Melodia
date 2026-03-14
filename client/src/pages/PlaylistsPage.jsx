@@ -10,6 +10,10 @@ import { ViewModeToggle } from "../components/ViewModeToggle";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { useAbortableRequest } from "../hooks/useAbortableRequest";
+import {
+  isSettingsAuthRequiredError,
+  useSettingsAccess
+} from "../hooks/useSettingsAccess";
 import { useAppStore } from "../store/appStore";
 
 export function PlaylistsPage() {
@@ -21,6 +25,12 @@ export function PlaylistsPage() {
   const setViewMode = useAppStore((state) => state.setViewMode);
   const gridSize = useAppStore((state) => state.gridSize);
   const setGridSize = useAppStore((state) => state.setGridSize);
+  const {
+    loading: permissionLoading,
+    canManageProtectedActions,
+    markLocked
+  } = useSettingsAccess();
+  const canCreatePlaylists = !permissionLoading && canManageProtectedActions;
 
   const loadPlaylists = useCallback((signal) => {
     return fetchPlaylists({ signal }).then((data) => {
@@ -38,7 +48,7 @@ export function PlaylistsPage() {
 
   const createNewPlaylist = () => {
     const trimmed = name.trim();
-    if (!trimmed || creating) {
+    if (!trimmed || creating || !canCreatePlaylists) {
       return;
     }
 
@@ -55,6 +65,9 @@ export function PlaylistsPage() {
         loadPlaylists();
       })
       .catch((err) => {
+        if (isSettingsAuthRequiredError(err)) {
+          markLocked();
+        }
         setError(getPlaylistWriteErrorMessage(err, "Could not create playlist"));
       })
       .finally(() => setCreating(false));
@@ -83,29 +96,31 @@ export function PlaylistsPage() {
           <p className="text-sm text-textSoft">Create custom collections and manage songs locally</p>
         </div>
 
-        <div className="flex items-center gap-2">
-          <Input
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                event.preventDefault();
-                createNewPlaylist();
-              }
-            }}
-            placeholder="New playlist name"
-            className="h-10 w-[220px] rounded-xl"
-          />
-          <Button
-            type="button"
-            onClick={createNewPlaylist}
-            disabled={!name.trim() || creating}
-            className="h-10 rounded-xl"
-          >
-            <Plus className="h-4 w-4" strokeWidth={2.2} aria-hidden="true" />
-            <span>{creating ? "Creating..." : "Create"}</span>
-          </Button>
-        </div>
+        {canCreatePlaylists && (
+          <div className="flex items-center gap-2">
+            <Input
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  createNewPlaylist();
+                }
+              }}
+              placeholder="New playlist name"
+              className="h-10 w-[220px] rounded-xl"
+            />
+            <Button
+              type="button"
+              onClick={createNewPlaylist}
+              disabled={!name.trim() || creating}
+              className="h-10 rounded-xl"
+            >
+              <Plus className="h-4 w-4" strokeWidth={2.2} aria-hidden="true" />
+              <span>{creating ? "Creating..." : "Create"}</span>
+            </Button>
+          </div>
+        )}
       </div>
 
       <ViewModeToggle

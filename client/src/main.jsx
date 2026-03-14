@@ -4,16 +4,62 @@ import { BrowserRouter } from "react-router-dom";
 import App from "./App";
 import "./styles/index.css";
 
+function getVisibleViewportHeight() {
+  if (typeof window === "undefined") {
+    return 0;
+  }
+
+  if (window.visualViewport?.height) {
+    return window.visualViewport.height;
+  }
+
+  return window.innerHeight;
+}
+
 function syncAppHeight() {
   if (typeof window === "undefined" || typeof document === "undefined") {
     return;
   }
-  document.documentElement.style.setProperty("--app-height", `${window.innerHeight}px`);
+
+  const viewportHeight = Math.max(1, Math.round(getVisibleViewportHeight()));
+  document.documentElement.style.setProperty("--app-height", `${viewportHeight}px`);
 }
 
-syncAppHeight();
-window.addEventListener("resize", syncAppHeight);
-window.addEventListener("fullscreenchange", syncAppHeight);
+function bindAppHeightSync() {
+  syncAppHeight();
+
+  const syncOptions = { passive: true };
+  window.addEventListener("resize", syncAppHeight, syncOptions);
+  window.addEventListener("orientationchange", syncAppHeight, syncOptions);
+  window.addEventListener("fullscreenchange", syncAppHeight, syncOptions);
+  window.addEventListener("pageshow", syncAppHeight, syncOptions);
+
+  const viewport = window.visualViewport;
+  if (viewport) {
+    viewport.addEventListener("resize", syncAppHeight);
+    viewport.addEventListener("scroll", syncAppHeight);
+  }
+
+  return () => {
+    window.removeEventListener("resize", syncAppHeight, syncOptions);
+    window.removeEventListener("orientationchange", syncAppHeight, syncOptions);
+    window.removeEventListener("fullscreenchange", syncAppHeight, syncOptions);
+    window.removeEventListener("pageshow", syncAppHeight, syncOptions);
+
+    if (viewport) {
+      viewport.removeEventListener("resize", syncAppHeight);
+      viewport.removeEventListener("scroll", syncAppHeight);
+    }
+  };
+}
+
+const unbindAppHeightSync = bindAppHeightSync();
+
+if (import.meta.hot) {
+  import.meta.hot.dispose(() => {
+    unbindAppHeightSync();
+  });
+}
 
 createRoot(document.getElementById("root")).render(
   <React.StrictMode>
