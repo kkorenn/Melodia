@@ -3,6 +3,7 @@ import {
   Activity,
   Clock3,
   Disc3,
+  Github,
   LibraryBig,
   ListMusic,
   Mic2,
@@ -34,11 +35,20 @@ export function Sidebar() {
   return (
     <aside className="hidden h-full w-64 flex-col border-r border-[color:var(--border)] bg-panel px-4 py-6 md:flex">
       <Card className="mb-8 bg-panelSoft/35">
-        <CardHeader className="space-y-1.5 p-4">
+        <CardHeader className="relative space-y-1.5 p-4">
+          <a
+            href="https://github.com/kkorenn/Melodia"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="Open Melodia on GitHub"
+            className="absolute right-4 top-4 inline-flex h-7 w-7 items-center justify-center rounded-md text-textSoft transition-colors hover:bg-panel hover:text-text"
+          >
+            <Github className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
+          </a>
           <CardDescription className="text-xs">Self-hosted player</CardDescription>
           <CardTitle className="flex items-center gap-2 text-xl">
-          <Music4 className="h-6 w-6 text-accent" strokeWidth={2.2} aria-hidden="true" />
-          <span>{appName}</span>
+            <Music4 className="h-6 w-6 text-accent" strokeWidth={2.2} aria-hidden="true" />
+            <span>{appName}</span>
           </CardTitle>
         </CardHeader>
       </Card>
