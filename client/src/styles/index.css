@@ -52,6 +52,10 @@ body {
   overflow: hidden;
 }
 
+.app-main-scroll {
+  scrollbar-gutter: stable both-edges;
+}
+
 ::-webkit-scrollbar {
   width: 11px;
   height: 11px;

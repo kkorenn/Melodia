@@ -11,13 +11,6 @@ import { formatLargeNumber, formatRelativeDate } from "../utils/format";
 
 export function ArtistsPage() {
   const [artists, setArtists] = useState([]);
-  const [stats, setStats] = useState({
-    artistCount: 0,
-    totalSongs: 0,
-    totalAlbums: 0,
-    totalPlays: 0,
-    activeArtists30d: 0
-  });
   const navigate = useNavigate();
   const viewMode = useAppStore((state) => state.viewModes?.artists || "grid");
   const setViewMode = useAppStore((state) => state.setViewMode);
@@ -27,15 +20,6 @@ export function ArtistsPage() {
   const loadArtists = useCallback((signal) => {
     return fetchArtists({ signal }).then((data) => {
       setArtists(data.rows || []);
-      setStats(
-        data.stats || {
-          artistCount: 0,
-          totalSongs: 0,
-          totalAlbums: 0,
-          totalPlays: 0,
-          activeArtists30d: 0
-        }
-      );
     });
   }, []);
 
@@ -74,39 +58,6 @@ export function ArtistsPage() {
       <div>
         <h2 className="text-2xl font-semibold text-text">Artists</h2>
         <p className="text-sm text-textSoft">{artistCountLabel}</p>
-      </div>
-
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
-        <div className="rounded-xl border border-[color:var(--border)] bg-panel px-3 py-2.5">
-          <p className="text-[11px] uppercase tracking-[0.08em] text-textSoft">Artists</p>
-          <p className="mt-1 text-base font-semibold text-text">
-            {formatLargeNumber(Number(stats.artistCount) || artists.length)}
-          </p>
-        </div>
-        <div className="rounded-xl border border-[color:var(--border)] bg-panel px-3 py-2.5">
-          <p className="text-[11px] uppercase tracking-[0.08em] text-textSoft">Songs</p>
-          <p className="mt-1 text-base font-semibold text-text">
-            {formatLargeNumber(Number(stats.totalSongs) || 0)}
-          </p>
-        </div>
-        <div className="rounded-xl border border-[color:var(--border)] bg-panel px-3 py-2.5">
-          <p className="text-[11px] uppercase tracking-[0.08em] text-textSoft">Albums</p>
-          <p className="mt-1 text-base font-semibold text-text">
-            {formatLargeNumber(Number(stats.totalAlbums) || 0)}
-          </p>
-        </div>
-        <div className="rounded-xl border border-[color:var(--border)] bg-panel px-3 py-2.5">
-          <p className="text-[11px] uppercase tracking-[0.08em] text-textSoft">Total Plays</p>
-          <p className="mt-1 text-base font-semibold text-text">
-            {formatLargeNumber(Number(stats.totalPlays) || 0)}
-          </p>
-        </div>
-        <div className="rounded-xl border border-[color:var(--border)] bg-panel px-3 py-2.5">
-          <p className="text-[11px] uppercase tracking-[0.08em] text-textSoft">Active 30d</p>
-          <p className="mt-1 text-base font-semibold text-text">
-            {formatLargeNumber(Number(stats.activeArtists30d) || 0)}
-          </p>
-        </div>
       </div>
 
       <ViewModeToggle

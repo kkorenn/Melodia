@@ -17,6 +17,7 @@ import { MostPlayedPage } from "./pages/MostPlayedPage";
 import { RecentlyPlayedPage } from "./pages/RecentlyPlayedPage";
 import { RediscoverPage } from "./pages/RediscoverPage";
 import { ActiveArtistsPage } from "./pages/ActiveArtistsPage";
+import { StatisticsPage } from "./pages/StatisticsPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { useAudioEngine } from "./hooks/useAudioEngine";
 import { useScanEvents } from "./hooks/useScanEvents";
@@ -70,7 +71,7 @@ export default function App() {
           <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
             <TopBar />
             <MobileNav />
-            <main className="min-h-0 flex-1 overflow-y-auto px-3 pb-4 pt-4 md:px-6">
+            <main className="app-main-scroll min-h-0 flex-1 overflow-y-auto px-3 pb-4 pt-4 md:px-6">
               <Routes>
                 <Route path="/" element={<LibraryPage />} />
                 <Route path="/playlists" element={<PlaylistsPage />} />
@@ -81,6 +82,7 @@ export default function App() {
                 <Route path="/albums/:albumArtist/:album" element={<AlbumDetailPage />} />
                 <Route path="/rediscover" element={<RediscoverPage />} />
                 <Route path="/active-artists" element={<ActiveArtistsPage />} />
+                <Route path="/statistics" element={<StatisticsPage />} />
                 <Route path="/most-played" element={<MostPlayedPage />} />
                 <Route path="/recently-played" element={<RecentlyPlayedPage />} />
                 <Route path="/settings" element={<SettingsPage />} />

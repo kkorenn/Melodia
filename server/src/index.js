@@ -1113,6 +1113,110 @@ app.get("/api/stats", (req, res) => {
   });
 });
 
+app.get("/api/statistics", (req, res) => {
+  const now = Date.now();
+  const dayMs = 24 * 60 * 60 * 1000;
+  const since30d = now - 30 * dayMs;
+  const since24h = now - dayMs;
+
+  const overview = db
+    .prepare(
+      `SELECT
+        COUNT(*) AS totalSongs,
+        COUNT(DISTINCT ${ARTIST_EXPR}) AS totalArtists,
+        COUNT(DISTINCT ${ALBUM_TITLE_EXPR} || '||' || ${ALBUM_ARTIST_EXPR}) AS totalAlbums,
+        COALESCE(SUM(duration), 0) AS totalDuration,
+        COALESCE(SUM(play_count), 0) AS totalPlays,
+        SUM(CASE WHEN COALESCE(play_count, 0) > 0 THEN 1 ELSE 0 END) AS playedSongs,
+        SUM(CASE WHEN COALESCE(play_count, 0) = 0 THEN 1 ELSE 0 END) AS unplayedSongs,
+        COALESCE(AVG(NULLIF(duration, 0)), 0) AS avgTrackDuration
+      FROM songs`
+    )
+    .get();
+
+  const activeArtists30d = db
+    .prepare(
+      `SELECT COUNT(*) AS count
+       FROM (
+         SELECT 1
+         FROM songs
+         WHERE COALESCE(last_played, 0) >= ?
+         GROUP BY ${ARTIST_EXPR}
+       )`
+    )
+    .get(since30d).count;
+
+  const plays24h = db
+    .prepare("SELECT COUNT(*) AS count FROM play_history WHERE played_at >= ?")
+    .get(since24h).count;
+
+  const playsByDay = db
+    .prepare(
+      `SELECT
+        strftime('%Y-%m-%d', played_at / 1000, 'unixepoch', 'localtime') AS day,
+        COUNT(*) AS plays
+      FROM play_history
+      WHERE played_at >= ?
+      GROUP BY day
+      ORDER BY day ASC`
+    )
+    .all(since30d);
+
+  const playsByHour = db
+    .prepare(
+      `SELECT
+        CAST(strftime('%H', played_at / 1000, 'unixepoch', 'localtime') AS INTEGER) AS hour,
+        COUNT(*) AS plays
+      FROM play_history
+      WHERE played_at >= ?
+      GROUP BY hour
+      ORDER BY hour ASC`
+    )
+    .all(since30d);
+
+  const topArtistsByTotalPlays = db
+    .prepare(
+      `SELECT
+        ${ARTIST_EXPR} AS artist,
+        SUM(COALESCE(play_count, 0)) AS plays
+      FROM songs
+      GROUP BY ${ARTIST_EXPR}
+      HAVING plays > 0
+      ORDER BY plays DESC, artist COLLATE NOCASE ASC
+      LIMIT 12`
+    )
+    .all();
+
+  const topArtistsRecent30d = db
+    .prepare(
+      `SELECT
+        ${ARTIST_EXPR} AS artist,
+        COUNT(*) AS plays
+      FROM play_history ph
+      INNER JOIN songs s ON s.id = ph.song_id
+      WHERE ph.played_at >= ?
+      GROUP BY ${ARTIST_EXPR}
+      ORDER BY plays DESC, artist COLLATE NOCASE ASC
+      LIMIT 12`
+    )
+    .all(since30d);
+
+  sendJson(res, {
+    generatedAt: now,
+    overview: {
+      ...overview,
+      activeArtists30d,
+      plays24h
+    },
+    charts: {
+      playsByDay,
+      playsByHour,
+      topArtistsByTotalPlays,
+      topArtistsRecent30d
+    }
+  });
+});
+
 app.get("/api/songs", (req, res) => {
   const offset = parseIntParam(req.query.offset, 0, 0, 10_000_000);
   const limit = parseIntParam(req.query.limit, 200, 1, 500);

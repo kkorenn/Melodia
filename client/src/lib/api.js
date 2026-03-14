@@ -177,6 +177,10 @@ export function fetchStats({ signal } = {}) {
   return request("/api/stats", { signal });
 }
 
+export function fetchStatistics({ signal } = {}) {
+  return request("/api/statistics", { signal });
+}
+
 export function fetchSettings() {
   return request("/api/settings");
 }
