@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useId, useMemo, useState } from "react";
 import { fetchStatistics } from "../lib/api";
 import { ListSkeleton } from "../components/LoadingSkeletons";
 import { useAbortableRequest } from "../hooks/useAbortableRequest";
@@ -35,45 +35,259 @@ function normalizeHourSeries(rows) {
   }));
 }
 
-function TrendChart({ series, title, subtitle }) {
-  const width = 860;
-  const height = 220;
-  const padding = 24;
+function buildTickIndices(length, desiredCount = 6) {
+  if (length <= 1) {
+    return [0];
+  }
+
+  const step = Math.max(1, Math.floor((length - 1) / Math.max(1, desiredCount - 1)));
+  const ticks = [];
+  for (let index = 0; index < length; index += step) {
+    ticks.push(index);
+  }
+
+  if (ticks[ticks.length - 1] !== length - 1) {
+    ticks.push(length - 1);
+  }
+
+  return ticks;
+}
+
+function formatTimelineTick(point) {
+  if (Number.isInteger(point?.hour)) {
+    const hour = Number(point.hour);
+    return `${String(hour).padStart(2, "0")}:00`;
+  }
+
+  const source = String(point?.day || "");
+  const [year, month, day] = source.split("-").map((token) => Number(token));
+  if (!year || !month || !day) {
+    return source;
+  }
+
+  return `${month}/${day}`;
+}
+
+function formatTooltipLabel(point) {
+  if (Number.isInteger(point?.hour)) {
+    const hour = Number(point.hour);
+    return `${String(hour).padStart(2, "0")}:00`;
+  }
+
+  const source = String(point?.day || "");
+  const [year, month, day] = source.split("-").map((token) => Number(token));
+  if (!year || !month || !day) {
+    return source;
+  }
+
+  return new Date(year, month - 1, day).toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric"
+  });
+}
+
+function TrendChart({ series }) {
+  const [hoveredIndex, setHoveredIndex] = useState(null);
+  const gradientId = useId().replace(/:/g, "");
+  const width = 900;
+  const height = 260;
+  const padding = {
+    top: 16,
+    right: 18,
+    bottom: 40,
+    left: 44
+  };
   const maxValue = Math.max(1, ...series.map((point) => Number(point.plays) || 0));
-  const points = series
-    .map((point, index) => {
-      const x =
-        padding + (index / Math.max(1, series.length - 1)) * (width - padding * 2);
-      const y =
-        height -
-        padding -
-        ((Number(point.plays) || 0) / maxValue) * (height - padding * 2);
-      return `${x},${y}`;
-    })
+  const minValue = 0;
+  const chartWidth = width - padding.left - padding.right;
+  const chartHeight = height - padding.top - padding.bottom;
+  const chartBottom = height - padding.bottom;
+
+  const plottedPoints = series.map((point, index) => {
+    const x = padding.left + (index / Math.max(1, series.length - 1)) * chartWidth;
+    const y =
+      chartBottom -
+      ((Number(point.plays) || 0) - minValue) / Math.max(1, maxValue - minValue) * chartHeight;
+
+    return {
+      index,
+      x,
+      y,
+      value: Number(point.plays) || 0,
+      point
+    };
+  });
+
+  const linePath = plottedPoints
+    .map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`)
     .join(" ");
+  const areaPath = plottedPoints.length
+    ? `M ${plottedPoints[0].x} ${chartBottom} ${linePath.slice(1)} L ${
+      plottedPoints[plottedPoints.length - 1].x
+    } ${chartBottom} Z`
+    : "";
+
+  const yTicks = Array.from({ length: 5 }, (_, index) => {
+    const ratio = index / 4;
+    const value = Math.round((1 - ratio) * maxValue);
+    const y = padding.top + ratio * chartHeight;
+    return { value, y };
+  });
+  const xTickIndices = buildTickIndices(
+    series.length,
+    Number.isInteger(series[0]?.hour) ? 7 : 6
+  );
+  const hoveredPoint = hoveredIndex == null ? null : plottedPoints[hoveredIndex] || null;
+
+  const setHoverFromEvent = (clientX, boundsLeft, boundsWidth) => {
+    if (!series.length || !boundsWidth) {
+      return;
+    }
+
+    const ratio = Math.max(0, Math.min(1, (clientX - boundsLeft) / boundsWidth));
+    const index = Math.round(ratio * (series.length - 1));
+    setHoveredIndex(index);
+  };
 
   return (
     <section className="rounded-2xl border border-[color:var(--border)] bg-panel/70 p-4">
-      <div className="mb-3">
-        <h3 className="text-base font-semibold text-text">{title}</h3>
-        <p className="text-xs text-textSoft">{subtitle}</p>
-      </div>
-      <svg viewBox={`0 0 ${width} ${height}`} className="w-full">
+      <div className="relative">
+        {hoveredPoint && (
+          <div
+            className="pointer-events-none absolute z-10 rounded-lg border border-[color:var(--border)] bg-panel px-2.5 py-1.5 text-xs shadow-xl shadow-black/20"
+            style={{
+              left: `${(hoveredPoint.x / width) * 100}%`,
+              top: `${(hoveredPoint.y / height) * 100}%`,
+              transform: "translate(-50%, -115%)"
+            }}
+          >
+            <p className="font-semibold text-text">{formatLargeNumber(hoveredPoint.value)} plays</p>
+            <p className="text-textSoft">{formatTooltipLabel(hoveredPoint.point)}</p>
+          </div>
+        )}
+
+        <svg
+          viewBox={`0 0 ${width} ${height}`}
+          className="w-full"
+          onMouseLeave={() => setHoveredIndex(null)}
+        >
         <defs>
-          <linearGradient id="trend-fill" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="rgb(var(--color-accent) / 0.28)" />
-            <stop offset="100%" stopColor="rgb(var(--color-accent) / 0.02)" />
+          <linearGradient id={`trend-fill-${gradientId}`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="rgb(var(--color-accent) / 0.38)" />
+            <stop offset="100%" stopColor="rgb(var(--color-accent) / 0.03)" />
           </linearGradient>
         </defs>
-        <polyline
-          fill="none"
-          stroke="rgb(var(--color-accent))"
-          strokeWidth="3"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          points={points}
-        />
-      </svg>
+
+          {yTicks.map((tick) => (
+            <g key={`y-${tick.y}`}>
+              <line
+                x1={padding.left}
+                y1={tick.y}
+                x2={width - padding.right}
+                y2={tick.y}
+                stroke="rgb(var(--color-panel-soft))"
+                strokeOpacity="0.5"
+                strokeWidth="1"
+              />
+              <text
+                x={padding.left - 8}
+                y={tick.y + 4}
+                textAnchor="end"
+                fill="rgb(var(--color-text-soft))"
+                fontSize="10"
+              >
+                {formatLargeNumber(tick.value)}
+              </text>
+            </g>
+          ))}
+
+          <path
+            d={areaPath}
+            fill={`url(#trend-fill-${gradientId})`}
+            stroke="none"
+          />
+          <path
+            d={linePath}
+            fill="none"
+            stroke="rgb(var(--color-accent))"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+
+          {hoveredPoint && (
+            <>
+              <line
+                x1={hoveredPoint.x}
+                y1={padding.top}
+                x2={hoveredPoint.x}
+                y2={chartBottom}
+                stroke="rgb(var(--color-accent))"
+                strokeOpacity="0.45"
+                strokeDasharray="4 4"
+              />
+              <circle
+                cx={hoveredPoint.x}
+                cy={hoveredPoint.y}
+                r="4.2"
+                fill="rgb(var(--color-accent))"
+                stroke="rgb(var(--color-panel))"
+                strokeWidth="2"
+              />
+            </>
+          )}
+
+          {xTickIndices.map((index) => {
+            const point = plottedPoints[index];
+            if (!point) {
+              return null;
+            }
+
+            return (
+              <text
+                key={`x-${index}`}
+                x={point.x}
+                y={height - 12}
+                textAnchor="middle"
+                fill="rgb(var(--color-text-soft))"
+                fontSize="10"
+              >
+                {formatTimelineTick(point.point)}
+              </text>
+            );
+          })}
+
+          <rect
+            x={padding.left}
+            y={padding.top}
+            width={chartWidth}
+            height={chartHeight}
+            fill="transparent"
+            onMouseMove={(event) => {
+              const bounds = event.currentTarget.getBoundingClientRect();
+              setHoverFromEvent(event.clientX, bounds.left, bounds.width);
+            }}
+            onTouchStart={(event) => {
+              const touch = event.touches?.[0];
+              if (!touch) {
+                return;
+              }
+              const bounds = event.currentTarget.getBoundingClientRect();
+              setHoverFromEvent(touch.clientX, bounds.left, bounds.width);
+            }}
+            onTouchMove={(event) => {
+              const touch = event.touches?.[0];
+              if (!touch) {
+                return;
+              }
+              const bounds = event.currentTarget.getBoundingClientRect();
+              setHoverFromEvent(touch.clientX, bounds.left, bounds.width);
+            }}
+            onTouchEnd={() => setHoveredIndex(null)}
+          />
+        </svg>
+      </div>
     </section>
   );
 }
@@ -221,17 +435,9 @@ export function StatisticsPage() {
         </div>
       </section>
 
-      <TrendChart
-        series={playsByDay}
-        title="Plays Trend (Last 30 Days)"
-        subtitle="Daily play history volume"
-      />
+      <TrendChart series={playsByDay} />
 
-      <TrendChart
-        series={playsByHour}
-        title="Hourly Listening Pattern (Last 30 Days)"
-        subtitle="Play concentration by hour of day"
-      />
+      <TrendChart series={playsByHour} />
 
       <div className="grid gap-4 lg:grid-cols-2">
         <HorizontalBarChart
