@@ -1,33 +1,10 @@
 import { NavLink } from "react-router-dom";
-import {
-  Activity,
-  Clock3,
-  Disc3,
-  Github,
-  LibraryBig,
-  ListMusic,
-  Mic2,
-  Music4,
-  Settings,
-  Sparkles,
-  TrendingUp
-} from "lucide-react";
+import { Github, Music4 } from "lucide-react";
 import { buttonVariants } from "./ui/button";
 import { Card, CardHeader, CardTitle, CardDescription } from "./ui/card";
 import { cn } from "../lib/utils";
+import { NAV_ITEMS } from "../lib/navigation";
 import { useAppStore } from "../store/appStore";
-
-const navItems = [
-  { to: "/", label: "Library", icon: LibraryBig },
-  { to: "/playlists", label: "Playlists", icon: ListMusic },
-  { to: "/artists", label: "Artists", icon: Mic2 },
-  { to: "/albums", label: "Albums", icon: Disc3 },
-  { to: "/rediscover", label: "Rediscover", icon: Sparkles },
-  { to: "/active-artists", label: "Active Artists", icon: Activity },
-  { to: "/recently-played", label: "Recently Played", icon: Clock3 },
-  { to: "/most-played", label: "Most Played", icon: TrendingUp },
-  { to: "/settings", label: "Settings", icon: Settings }
-];
 
 export function Sidebar() {
   const appName = useAppStore((state) => state.appName);
@@ -54,7 +31,7 @@ export function Sidebar() {
       </Card>
 
       <nav className="flex flex-col gap-1">
-        {navItems.map((item) => (
+        {NAV_ITEMS.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}

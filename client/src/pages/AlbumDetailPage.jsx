@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { useParams } from "react-router-dom";
 import { fetchAlbumTracks } from "../lib/api";
 import { ListSkeleton } from "../components/LoadingSkeletons";
 import { SongTable } from "../components/SongTable";
 import { CoverArt } from "../components/CoverArt";
+import { useAbortableRequest } from "../hooks/useAbortableRequest";
 import { useSongActions } from "../hooks/useSongActions";
 import { usePlayerStore, selectCurrentSong } from "../store/playerStore";
 
@@ -13,34 +14,25 @@ export function AlbumDetailPage() {
   const album = decodeURIComponent(params.album || "Unknown Album");
 
   const [songs, setSongs] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
 
   const currentSongId = usePlayerStore((state) => selectCurrentSong(state)?.id);
   const { playSong, queueSong, goToArtist, goToAlbum } = useSongActions();
 
-  useEffect(() => {
-    const controller = new AbortController();
-
-    setLoading(true);
-    setError("");
-
-    fetchAlbumTracks(album, albumArtist, { signal: controller.signal })
-      .then((data) => setSongs(data.rows || []))
-      .catch((err) => {
-        if (err?.name === "AbortError") {
-          return;
-        }
-        setError(err.message || "Could not load album tracks");
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) {
-          setLoading(false);
-        }
+  const loadAlbumTracks = useCallback(
+    (signal) => {
+      return fetchAlbumTracks(album, albumArtist, { signal }).then((data) => {
+        setSongs(data.rows || []);
       });
+    },
+    [album, albumArtist]
+  );
 
-    return () => controller.abort();
-  }, [album, albumArtist]);
+  const {
+    loading,
+    error
+  } = useAbortableRequest(loadAlbumTracks, [loadAlbumTracks], {
+    fallbackErrorMessage: "Could not load album tracks"
+  });
 
   if (loading) {
     return (

@@ -1,21 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { usePlayerStore } from "../store/playerStore";
-
-function sameSongOrder(left, right) {
-  if (!Array.isArray(left) || !Array.isArray(right) || left.length !== right.length) {
-    return false;
-  }
-
-  for (let index = 0; index < left.length; index += 1) {
-    const leftId = left[index]?.id;
-    const rightId = right[index]?.id;
-    if (leftId !== rightId) {
-      return false;
-    }
-  }
-
-  return true;
-}
+import { sameSongOrder } from "../lib/songOrder";
 
 export function useSongActions() {
   const navigate = useNavigate();

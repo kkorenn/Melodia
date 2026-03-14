@@ -22,18 +22,14 @@ import {
   sortPlaylistSongs,
   updatePlaylist
 } from "../lib/api";
+import { getPlaylistWriteErrorMessage } from "../lib/playlistErrors";
 import { PlaylistArt } from "../components/PlaylistArt";
 import { CoverArt } from "../components/CoverArt";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
 import { useDebouncedValue } from "../hooks/useDebouncedValue";
 import { useSongActions } from "../hooks/useSongActions";
 import { usePlayerStore, selectCurrentSong } from "../store/playerStore";
-
-function getPlaylistWriteErrorMessage(err, fallback) {
-  if (err?.status === 401 || err?.code === "SETTINGS_AUTH_REQUIRED") {
-    return "Unlock Settings first, then try editing this playlist again.";
-  }
-  return err?.message || fallback;
-}
 
 export function PlaylistDetailPage() {
   const params = useParams();
@@ -300,20 +296,21 @@ export function PlaylistDetailPage() {
             <div className="text-xs uppercase tracking-[0.15em] text-textSoft">Playlist</div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <input
+              <Input
                 value={nameDraft}
                 onChange={(event) => setNameDraft(event.target.value)}
-                className="min-w-[220px] rounded-xl border border-[color:var(--border)] bg-panelSoft px-3 py-2 text-2xl font-semibold text-text outline-none focus:border-accent"
+                className="min-w-[220px] rounded-xl text-2xl font-semibold"
               />
-              <button
+              <Button
                 type="button"
                 onClick={saveName}
                 disabled={savingName || !nameDraft.trim()}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-[color:var(--border)] px-3 py-2 text-sm text-textSoft transition hover:border-accent/40 hover:text-text disabled:opacity-60"
+                variant="outline"
+                className="h-10 rounded-xl"
               >
                 <PencilLine className="h-4 w-4" strokeWidth={2.2} aria-hidden="true" />
                 <span>{savingName ? "Saving..." : "Rename"}</span>
-              </button>
+              </Button>
             </div>
 
             <p className="text-sm text-textSoft">{songs.length} songs</p>
@@ -330,24 +327,26 @@ export function PlaylistDetailPage() {
                   disabled={uploadingCover}
                 />
               </label>
-              <button
+              <Button
                 type="button"
                 onClick={removeCustomCover}
                 disabled={uploadingCover}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-[color:var(--border)] px-3 py-2 text-sm text-textSoft transition hover:border-accent/40 hover:text-text disabled:opacity-60"
+                variant="outline"
+                className="h-10 rounded-xl"
               >
                 <X className="h-4 w-4" strokeWidth={2.2} aria-hidden="true" />
                 <span>Use First Song Cover</span>
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
                 onClick={destroyPlaylist}
                 disabled={deleting}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-rose-400/40 px-3 py-2 text-sm text-rose-300 transition hover:bg-rose-500/15 disabled:opacity-60"
+                variant="outline"
+                className="h-10 rounded-xl border-rose-400/40 text-rose-300 hover:bg-rose-500/15 hover:text-rose-200"
               >
                 <Trash2 className="h-4 w-4" strokeWidth={2.2} aria-hidden="true" />
                 <span>{deleting ? "Deleting..." : "Delete Playlist"}</span>
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -381,16 +380,18 @@ export function PlaylistDetailPage() {
               <option value="asc">Ascending</option>
               <option value="desc">Descending</option>
             </select>
-            <button
+            <Button
               type="button"
               onClick={applyPlaylistSort}
               disabled={!songs.length || sortingPlaylist}
-              className="inline-flex items-center gap-1 rounded-xl border border-[color:var(--border)] px-2.5 py-1.5 text-xs text-textSoft transition hover:border-accent/40 hover:text-text disabled:opacity-60"
+              variant="outline"
+              size="sm"
+              className="h-8 rounded-xl"
             >
               <ArrowUpDown className="h-3.5 w-3.5" strokeWidth={2.2} aria-hidden="true" />
               <span>{sortingPlaylist ? "Sorting..." : "Sort"}</span>
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
               onClick={() => {
                 if (songs.length) {
@@ -398,10 +399,11 @@ export function PlaylistDetailPage() {
                 }
               }}
               disabled={!songs.length}
-              className="rounded-xl bg-accent px-3 py-1.5 text-sm font-semibold text-shell disabled:opacity-60"
+              size="sm"
+              className="h-8 rounded-xl"
             >
               Play Playlist
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -454,11 +456,11 @@ export function PlaylistDetailPage() {
       <section className="space-y-3 rounded-2xl border border-[color:var(--border)] bg-panel/70 p-4">
         <div className="flex flex-wrap items-end justify-between gap-2">
           <h3 className="text-sm uppercase tracking-[0.14em] text-textSoft">Add Songs</h3>
-          <input
+          <Input
             value={searchInput}
             onChange={(event) => setSearchInput(event.target.value)}
             placeholder="Search songs by title, artist, album"
-            className="w-full rounded-xl border border-[color:var(--border)] bg-panelSoft px-3 py-2 text-sm text-text outline-none focus:border-accent md:w-80"
+            className="h-10 w-full rounded-xl md:w-80"
           />
         </div>
 

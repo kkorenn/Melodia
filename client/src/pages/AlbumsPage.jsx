@@ -1,52 +1,40 @@
-import { useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import clsx from "clsx";
 import { useNavigate } from "react-router-dom";
 import { fetchAlbums } from "../lib/api";
 import { CoverArt } from "../components/CoverArt";
 import { GridSkeleton, ListSkeleton } from "../components/LoadingSkeletons";
 import { ViewModeToggle } from "../components/ViewModeToggle";
+import { useAbortableRequest } from "../hooks/useAbortableRequest";
 import { useAppStore } from "../store/appStore";
 
 export function AlbumsPage() {
   const [albums, setAlbums] = useState([]);
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(false);
-  const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [error, setError] = useState("");
   const navigate = useNavigate();
   const viewMode = useAppStore((state) => state.viewModes?.albums || "grid");
   const setViewMode = useAppStore((state) => state.setViewMode);
   const gridSize = useAppStore((state) => state.gridSize);
   const setGridSize = useAppStore((state) => state.setGridSize);
 
-  const loadInitial = (signal) => {
-    setLoading(true);
-    fetchAlbums({ offset: 0, limit: 200, signal })
-      .then((data) => {
-        const rows = data.rows || [];
-        setAlbums(rows);
-        setOffset(rows.length);
-        setHasMore(Boolean(data.hasMore));
-      })
-      .catch((err) => {
-        if (err?.name === "AbortError") {
-          return;
-        }
-        setError(err.message || "Failed to load albums");
-      })
-      .finally(() => {
-        if (!signal?.aborted) {
-          setLoading(false);
-        }
-      });
-  };
-
-  useEffect(() => {
-    const controller = new AbortController();
-    loadInitial(controller.signal);
-    return () => controller.abort();
+  const loadInitial = useCallback((signal) => {
+    return fetchAlbums({ offset: 0, limit: 200, signal }).then((data) => {
+      const rows = data.rows || [];
+      setAlbums(rows);
+      setOffset(rows.length);
+      setHasMore(Boolean(data.hasMore));
+    });
   }, []);
+
+  const {
+    loading,
+    error,
+    setError
+  } = useAbortableRequest(loadInitial, [loadInitial], {
+    fallbackErrorMessage: "Failed to load albums"
+  });
 
   const loadMore = () => {
     if (!hasMore || loadingMore) {

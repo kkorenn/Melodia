@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { fetchActiveArtists } from "../lib/api";
 import { CoverArt } from "../components/CoverArt";
 import { ListSkeleton } from "../components/LoadingSkeletons";
+import { useAbortableRequest } from "../hooks/useAbortableRequest";
 import { formatLargeNumber, formatRelativeDate } from "../utils/format";
 
 const ACTIVE_ARTIST_DAY_OPTIONS = [7, 30, 90];
@@ -10,40 +11,25 @@ const ACTIVE_ARTIST_DAY_OPTIONS = [7, 30, 90];
 export function ActiveArtistsPage() {
   const [artists, setArtists] = useState([]);
   const [days, setDays] = useState(ACTIVE_ARTIST_DAY_OPTIONS[1]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState("");
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const controller = new AbortController();
-    const initialLoad = loading;
-
-    if (!initialLoad) {
-      setRefreshing(true);
-    }
-    setError("");
-
-    fetchActiveArtists({ limit: 120, days, signal: controller.signal })
-      .then((payload) => {
+  const loadActiveArtists = useCallback(
+    (signal) => {
+      return fetchActiveArtists({ limit: 120, days, signal }).then((payload) => {
         setArtists(payload?.rows || []);
         setDays(Number(payload?.days) || 30);
-      })
-      .catch((err) => {
-        if (err?.name === "AbortError") {
-          return;
-        }
-        setError(err.message || "Could not load active artists");
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) {
-          setLoading(false);
-          setRefreshing(false);
-        }
       });
+    },
+    [days]
+  );
 
-    return () => controller.abort();
-  }, [days]);
+  const {
+    loading,
+    refreshing,
+    error
+  } = useAbortableRequest(loadActiveArtists, [loadActiveArtists], {
+    fallbackErrorMessage: "Could not load active artists"
+  });
 
   if (loading) {
     return <ListSkeleton rows={10} withArt />;

@@ -1,57 +1,40 @@
-import { useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import clsx from "clsx";
 import { Plus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { createPlaylist, fetchPlaylists } from "../lib/api";
+import { getPlaylistWriteErrorMessage } from "../lib/playlistErrors";
 import { PlaylistArt } from "../components/PlaylistArt";
 import { GridSkeleton, ListSkeleton } from "../components/LoadingSkeletons";
 import { ViewModeToggle } from "../components/ViewModeToggle";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
+import { useAbortableRequest } from "../hooks/useAbortableRequest";
 import { useAppStore } from "../store/appStore";
-
-function getPlaylistWriteErrorMessage(err, fallback) {
-  if (err?.status === 401 || err?.code === "SETTINGS_AUTH_REQUIRED") {
-    return "Unlock Settings first, then try creating/editing playlists again.";
-  }
-  return err?.message || fallback;
-}
 
 export function PlaylistsPage() {
   const [playlists, setPlaylists] = useState([]);
   const [name, setName] = useState("");
-  const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
-  const [error, setError] = useState("");
   const navigate = useNavigate();
   const viewMode = useAppStore((state) => state.viewModes?.playlists || "grid");
   const setViewMode = useAppStore((state) => state.setViewMode);
   const gridSize = useAppStore((state) => state.gridSize);
   const setGridSize = useAppStore((state) => state.setGridSize);
 
-  const loadPlaylists = (signal) => {
-    setLoading(true);
-    setError("");
-    fetchPlaylists({ signal })
-      .then((data) => {
-        setPlaylists(data.rows || []);
-      })
-      .catch((err) => {
-        if (err?.name === "AbortError") {
-          return;
-        }
-        setError(err.message || "Could not load playlists");
-      })
-      .finally(() => {
-        if (!signal?.aborted) {
-          setLoading(false);
-        }
-      });
-  };
-
-  useEffect(() => {
-    const controller = new AbortController();
-    loadPlaylists(controller.signal);
-    return () => controller.abort();
+  const loadPlaylists = useCallback((signal) => {
+    return fetchPlaylists({ signal }).then((data) => {
+      setPlaylists(data.rows || []);
+    });
   }, []);
+
+  const {
+    loading,
+    error,
+    setError
+  } = useAbortableRequest(loadPlaylists, [loadPlaylists], {
+    fallbackErrorMessage: "Could not load playlists"
+  });
 
   const createNewPlaylist = () => {
     const trimmed = name.trim();
@@ -101,7 +84,7 @@ export function PlaylistsPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          <input
+          <Input
             value={name}
             onChange={(event) => setName(event.target.value)}
             onKeyDown={(event) => {
@@ -111,17 +94,17 @@ export function PlaylistsPage() {
               }
             }}
             placeholder="New playlist name"
-            className="rounded-xl border border-[color:var(--border)] bg-panelSoft px-3 py-2 text-sm text-text outline-none focus:border-accent"
+            className="h-10 w-[220px] rounded-xl"
           />
-          <button
+          <Button
             type="button"
             onClick={createNewPlaylist}
             disabled={!name.trim() || creating}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-accent px-3 py-2 text-sm font-semibold text-shell transition disabled:opacity-60"
+            className="h-10 rounded-xl"
           >
             <Plus className="h-4 w-4" strokeWidth={2.2} aria-hidden="true" />
             <span>{creating ? "Creating..." : "Create"}</span>
-          </button>
+          </Button>
         </div>
       </div>
 

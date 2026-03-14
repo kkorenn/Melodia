@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { fetchRediscover } from "../lib/api";
 import { SongTable } from "../components/SongTable";
 import { SongTableSkeleton } from "../components/LoadingSkeletons";
+import { useAbortableRequest } from "../hooks/useAbortableRequest";
 import { useSongActions } from "../hooks/useSongActions";
 import { usePlayerStore, selectCurrentSong } from "../store/playerStore";
 
@@ -11,43 +12,28 @@ export function RediscoverPage() {
   const [unheard, setUnheard] = useState([]);
   const [rediscover, setRediscoverSongs] = useState([]);
   const [staleDays, setStaleDays] = useState(REDISCOVER_DAY_OPTIONS[1]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState("");
 
   const currentSongId = usePlayerStore((state) => selectCurrentSong(state)?.id);
   const { playSong, queueSong, goToArtist, goToAlbum } = useSongActions();
 
-  useEffect(() => {
-    const controller = new AbortController();
-    const initialLoad = loading;
-
-    if (!initialLoad) {
-      setRefreshing(true);
-    }
-    setError("");
-
-    fetchRediscover({ limit: 160, staleDays, signal: controller.signal })
-      .then((payload) => {
+  const loadRediscover = useCallback(
+    (signal) => {
+      return fetchRediscover({ limit: 160, staleDays, signal }).then((payload) => {
         setUnheard(payload?.unheard || []);
         setRediscoverSongs(payload?.rediscover || []);
         setStaleDays(Number(payload?.staleDays) || 90);
-      })
-      .catch((err) => {
-        if (err?.name === "AbortError") {
-          return;
-        }
-        setError(err.message || "Could not load rediscover lists");
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) {
-          setLoading(false);
-          setRefreshing(false);
-        }
       });
+    },
+    [staleDays]
+  );
 
-    return () => controller.abort();
-  }, [staleDays]);
+  const {
+    loading,
+    refreshing,
+    error
+  } = useAbortableRequest(loadRediscover, [loadRediscover], {
+    fallbackErrorMessage: "Could not load rediscover lists"
+  });
 
   if (loading) {
     return <SongTableSkeleton rows={10} />;

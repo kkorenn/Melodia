@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import clsx from "clsx";
 import { useNavigate, useParams } from "react-router-dom";
 import { fetchArtistAlbums, fetchArtistSongs } from "../lib/api";
@@ -6,6 +6,7 @@ import { SongTable } from "../components/SongTable";
 import { CoverArt } from "../components/CoverArt";
 import { GridSkeleton, ListSkeleton } from "../components/LoadingSkeletons";
 import { ViewModeToggle } from "../components/ViewModeToggle";
+import { useAbortableRequest } from "../hooks/useAbortableRequest";
 import { useSongActions } from "../hooks/useSongActions";
 import { useAppStore } from "../store/appStore";
 import { usePlayerStore, selectCurrentSong } from "../store/playerStore";
@@ -15,8 +16,6 @@ export function ArtistDetailPage() {
   const artist = decodeURIComponent(params.artist || "Unknown Artist");
   const [songs, setSongs] = useState([]);
   const [albums, setAlbums] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
 
   const navigate = useNavigate();
   const currentSongId = usePlayerStore((state) => selectCurrentSong(state)?.id);
@@ -26,34 +25,25 @@ export function ArtistDetailPage() {
   const setGridSize = useAppStore((state) => state.setGridSize);
   const { playSong, queueSong, goToArtist, goToAlbum } = useSongActions();
 
-  useEffect(() => {
-    const controller = new AbortController();
-
-    setLoading(true);
-    setError("");
-
-    Promise.all([
-      fetchArtistSongs(artist, { signal: controller.signal }),
-      fetchArtistAlbums(artist, { signal: controller.signal })
-    ])
-      .then(([songsData, albumsData]) => {
+  const loadArtistDetails = useCallback(
+    (signal) => {
+      return Promise.all([
+        fetchArtistSongs(artist, { signal }),
+        fetchArtistAlbums(artist, { signal })
+      ]).then(([songsData, albumsData]) => {
         setSongs(songsData.rows || []);
         setAlbums(albumsData.rows || []);
-      })
-      .catch((err) => {
-        if (err?.name === "AbortError") {
-          return;
-        }
-        setError(err.message || "Could not load artist details");
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) {
-          setLoading(false);
-        }
       });
+    },
+    [artist]
+  );
 
-    return () => controller.abort();
-  }, [artist]);
+  const {
+    loading,
+    error
+  } = useAbortableRequest(loadArtistDetails, [loadArtistDetails], {
+    fallbackErrorMessage: "Could not load artist details"
+  });
 
   if (loading) {
     return (

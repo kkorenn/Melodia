@@ -3,7 +3,6 @@ import { useShallow } from "zustand/react/shallow";
 import {
   COMMON_COLOR_SCHEME_PRESET_IDS,
   COLOR_SCHEME_PRESETS,
-  COLOR_TOKEN_FIELDS,
   getDefaultColorScheme,
   getPresetPalette,
   normalizeColorScheme,
@@ -19,8 +18,12 @@ import {
   saveSettings,
   triggerRescan
 } from "../lib/api";
+import { SettingsLockGate } from "../components/settings/SettingsLockGate";
+import { SettingsColorSchemeSection } from "../components/settings/SettingsColorSchemeSection";
+import { SettingsScanProgressCard } from "../components/settings/SettingsScanProgressCard";
+import { SettingsLibraryStatsCards } from "../components/settings/SettingsLibraryStatsCards";
+import { Input } from "../components/ui/input";
 import { useAppStore } from "../store/appStore";
-import { formatLargeNumber, formatTotalDuration } from "../utils/format";
 
 export function SettingsPage() {
   const {
@@ -291,13 +294,6 @@ export function SettingsPage() {
     }));
   };
 
-  const enableCustomMode = () => {
-    updateScheme((current) => ({
-      ...current,
-      mode: "custom"
-    }));
-  };
-
   const resetCustomFromPreset = () => {
     updateScheme((current) => ({
       ...current,
@@ -443,51 +439,14 @@ export function SettingsPage() {
 
   if (settingsLocked) {
     return (
-      <section className="space-y-5">
-        <div>
-          <h2 className="text-2xl font-semibold text-text">Settings</h2>
-          <p className="text-sm text-textSoft">Protected via backend password</p>
-        </div>
-
-        <div className="space-y-4 rounded-2xl border border-[color:var(--border)] bg-panel/70 p-4">
-          <p className="text-sm text-textSoft">
-            Enter your settings password to unlock configuration and rescanning controls.
-          </p>
-
-          <label className="block text-sm text-textSoft">
-            Settings Password
-            <input
-              type="password"
-              value={settingsPassword}
-              onChange={(event) => setSettingsPassword(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  event.preventDefault();
-                  unlockSettings();
-                }
-              }}
-              className="mt-1 w-full rounded-xl border border-[color:var(--border)] bg-panelSoft px-3 py-2 text-sm text-text outline-none focus:border-accent"
-              placeholder="Enter password"
-              autoComplete="current-password"
-            />
-          </label>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={unlockSettings}
-              disabled={unlocking}
-              className="rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-shell transition hover:brightness-110 disabled:opacity-60"
-            >
-              {unlocking ? "Unlocking..." : "Unlock Settings"}
-            </button>
-            <span className="text-xs text-textSoft">Rate limit: 1 try every 5 seconds</span>
-          </div>
-
-          {message && <p className="text-sm text-emerald-300">{message}</p>}
-          {error && <p className="text-sm text-rose-300">{error}</p>}
-        </div>
-      </section>
+      <SettingsLockGate
+        settingsPassword={settingsPassword}
+        setSettingsPassword={setSettingsPassword}
+        unlocking={unlocking}
+        unlockSettings={unlockSettings}
+        message={message}
+        error={error}
+      />
     );
   }
 
@@ -510,26 +469,26 @@ export function SettingsPage() {
       <div className="space-y-4 rounded-2xl border border-[color:var(--border)] bg-panel/70 p-4">
         <label className="block text-sm text-textSoft">
           Music Root Folder
-          <input
+          <Input
             value={form.musicDir}
             onChange={(event) =>
               setForm((previous) => ({ ...previous, musicDir: event.target.value }))
             }
-            className="mt-1 w-full rounded-xl border border-[color:var(--border)] bg-panelSoft px-3 py-2 text-sm text-text outline-none focus:border-accent"
+            className="mt-1 h-10 rounded-xl"
             placeholder="/absolute/path/to/music"
           />
         </label>
 
         <label className="block text-sm text-textSoft">
           API Port (restart required after change)
-          <input
+          <Input
             type="number"
             min={1}
             value={form.port}
             onChange={(event) =>
               setForm((previous) => ({ ...previous, port: Number(event.target.value) || 4872 }))
             }
-            className="mt-1 w-full rounded-xl border border-[color:var(--border)] bg-panelSoft px-3 py-2 text-sm text-text outline-none focus:border-accent"
+            className="mt-1 h-10 rounded-xl"
           />
         </label>
 
@@ -561,158 +520,22 @@ export function SettingsPage() {
           </div>
         </div>
 
-        <section className="space-y-3 rounded-xl border border-[color:var(--border)] bg-panelSoft/40 p-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-sm text-textSoft">Color Scheme</p>
-            <p className="text-xs text-textSoft">Saved with Settings</p>
-          </div>
-
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => updateScheme((current) => ({ ...current, mode: "preset" }))}
-              className={`rounded-lg px-2.5 py-1.5 text-xs transition ${
-                normalizedScheme.mode === "preset"
-                  ? "bg-accent text-shell"
-                  : "border border-[color:var(--border)] text-textSoft hover:text-text"
-              }`}
-            >
-              Presets
-            </button>
-            <button
-              type="button"
-              onClick={enableCustomMode}
-              className={`rounded-lg px-2.5 py-1.5 text-xs transition ${
-                normalizedScheme.mode === "custom"
-                  ? "bg-accent text-shell"
-                  : "border border-[color:var(--border)] text-textSoft hover:text-text"
-              }`}
-            >
-              Custom
-            </button>
-          </div>
-
-          {normalizedScheme.mode === "preset" && (
-            <div className="space-y-2">
-              {COLOR_SCHEME_PRESETS.length > 4 && (
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-xs text-textSoft">
-                    {showAllPresets
-                      ? `Showing all ${COLOR_SCHEME_PRESETS.length} palettes`
-                      : "Showing 4 common palettes"}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => setShowAllPresets((previous) => !previous)}
-                    className="rounded-lg border border-[color:var(--border)] px-2.5 py-1 text-xs text-textSoft transition hover:border-accent/40 hover:text-text"
-                  >
-                    {showAllPresets ? "Show Less" : "Show More"}
-                  </button>
-                </div>
-              )}
-
-              <div className="grid gap-2 md:grid-cols-2">
-                {presetCards.map((preset) => {
-                  const previewPalette = getPresetPalette(preset.id, form.theme);
-                  const isActive = normalizedScheme.preset === preset.id;
-
-                  return (
-                    <button
-                      key={preset.id}
-                      type="button"
-                      onClick={() => applyPreset(preset.id)}
-                      className={`rounded-xl border p-3 text-left transition ${
-                        isActive
-                          ? "border-accent/50 bg-accent/10"
-                          : "border-[color:var(--border)] hover:border-accent/40 hover:bg-panel/50"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-semibold text-text">{preset.name}</span>
-                        {isActive && (
-                          <span className="rounded bg-accent/20 px-1.5 py-0.5 text-[10px] uppercase tracking-[0.14em] text-accent">
-                            Active
-                          </span>
-                        )}
-                      </div>
-                      <div className="mt-2 flex gap-1">
-                        {["shell", "panel", "accent", "accentWarm"].map((tokenKey) => (
-                          <span
-                            key={tokenKey}
-                            className="h-4 w-4 rounded-full border border-white/20"
-                            style={{ backgroundColor: previewPalette[tokenKey] }}
-                          />
-                        ))}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {normalizedScheme.mode === "custom" && (
-            <div className="space-y-3">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setCustomEditTheme("dark")}
-                    className={`rounded-lg px-2.5 py-1.5 text-xs transition ${
-                      customEditTheme === "dark"
-                        ? "bg-accent text-shell"
-                        : "border border-[color:var(--border)] text-textSoft hover:text-text"
-                    }`}
-                  >
-                    Edit Dark Palette
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setCustomEditTheme("light")}
-                    className={`rounded-lg px-2.5 py-1.5 text-xs transition ${
-                      customEditTheme === "light"
-                        ? "bg-accent text-shell"
-                        : "border border-[color:var(--border)] text-textSoft hover:text-text"
-                    }`}
-                  >
-                    Edit Light Palette
-                  </button>
-                </div>
-                <button
-                  type="button"
-                  onClick={resetCustomFromPreset}
-                  className="rounded-lg border border-[color:var(--border)] px-2.5 py-1.5 text-xs text-textSoft transition hover:border-accent/40 hover:text-text"
-                >
-                  Reset From Preset
-                </button>
-              </div>
-
-              <div className="grid gap-2 md:grid-cols-2">
-                {COLOR_TOKEN_FIELDS.map((token) => (
-                  <label
-                    key={`${customEditTheme}-${token.key}`}
-                    className="flex items-center justify-between rounded-xl border border-[color:var(--border)] bg-panel/50 px-3 py-2"
-                  >
-                    <span className="text-xs text-textSoft">{token.label}</span>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="color"
-                        value={customPalette[token.key]}
-                        onChange={(event) =>
-                          updateCustomColor(token.key, event.target.value)
-                        }
-                        className="h-8 w-10 cursor-pointer rounded border border-[color:var(--border)] bg-transparent p-0"
-                      />
-                      <span className="w-16 text-right font-mono text-xs text-textSoft">
-                        {customPalette[token.key]}
-                      </span>
-                    </div>
-                  </label>
-                ))}
-              </div>
-            </div>
-          )}
-        </section>
+        <SettingsColorSchemeSection
+          formTheme={form.theme}
+          normalizedScheme={normalizedScheme}
+          customEditTheme={customEditTheme}
+          setCustomEditTheme={setCustomEditTheme}
+          showAllPresets={showAllPresets}
+          setShowAllPresets={setShowAllPresets}
+          presetCards={presetCards}
+          customPalette={customPalette}
+          setColorMode={(mode) =>
+            updateScheme((current) => ({ ...current, mode: mode === "custom" ? "custom" : "preset" }))
+          }
+          applyPreset={applyPreset}
+          resetCustomFromPreset={resetCustomFromPreset}
+          updateCustomColor={updateCustomColor}
+        />
 
         <div className="flex flex-wrap items-center gap-2">
           <button
@@ -732,59 +555,9 @@ export function SettingsPage() {
         {error && <p className="text-sm text-rose-300">{error}</p>}
       </div>
 
-      <section className="space-y-3 rounded-2xl border border-[color:var(--border)] bg-panel/70 p-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm uppercase tracking-[0.14em] text-textSoft">
-            Library Scan Progress
-          </h3>
-          <span className="text-sm text-text">{scanState.progress || 0}%</span>
-        </div>
-        <div className="h-2 overflow-hidden rounded-full bg-panelSoft">
-          <div
-            className="h-full bg-gradient-to-r from-accent to-accentWarm transition-all"
-            style={{ width: `${scanState.progress || 0}%` }}
-          />
-        </div>
-        <p className="text-xs text-textSoft">
-          {scanState.running
-            ? `Scanning ${scanState.scanned || 0}/${scanState.total || 0} files`
-            : "Idle"}
-        </p>
-        <p className="truncate text-xs text-textSoft">
-          {scanState.currentFile || "No file active"}
-        </p>
-        <p className="text-xs text-textSoft">
-          Added: {scanState.added || 0} · Updated: {scanState.updated || 0} · Skipped:{" "}
-          {scanState.skipped || 0} · Removed: {scanState.removed || 0}
-        </p>
-      </section>
+      <SettingsScanProgressCard scanState={scanState} />
 
-      <section className="grid grid-cols-2 gap-3 rounded-2xl border border-[color:var(--border)] bg-panel/70 p-4 lg:grid-cols-4">
-        <div className="rounded-xl bg-panelSoft/70 p-3">
-          <p className="text-xs uppercase tracking-[0.14em] text-textSoft">Songs</p>
-          <p className="mt-1 text-xl font-semibold text-text">
-            {formatLargeNumber(stats?.totalSongs || 0)}
-          </p>
-        </div>
-        <div className="rounded-xl bg-panelSoft/70 p-3">
-          <p className="text-xs uppercase tracking-[0.14em] text-textSoft">Artists</p>
-          <p className="mt-1 text-xl font-semibold text-text">
-            {formatLargeNumber(stats?.totalArtists || 0)}
-          </p>
-        </div>
-        <div className="rounded-xl bg-panelSoft/70 p-3">
-          <p className="text-xs uppercase tracking-[0.14em] text-textSoft">Albums</p>
-          <p className="mt-1 text-xl font-semibold text-text">
-            {formatLargeNumber(stats?.totalAlbums || 0)}
-          </p>
-        </div>
-        <div className="rounded-xl bg-panelSoft/70 p-3">
-          <p className="text-xs uppercase tracking-[0.14em] text-textSoft">Total Duration</p>
-          <p className="mt-1 text-xl font-semibold text-text">
-            {formatTotalDuration(stats?.totalDuration || 0)}
-          </p>
-        </div>
-      </section>
+      <SettingsLibraryStatsCards stats={stats} />
 
       {settings?.port && (
         <p className="text-xs text-textSoft">

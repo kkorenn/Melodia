@@ -63,10 +63,6 @@ export function fetchSongs({ offset = 0, limit = 200, sort = "title", direction 
   );
 }
 
-export function fetchAllSongs({ offset = 0, limit = 200 } = {}) {
-  return request(`/api/views/all-songs?offset=${offset}&limit=${limit}`);
-}
-
 export function fetchMostPlayed(limit = 200, { signal } = {}) {
   return request(`/api/views/most-played?limit=${limit}`, { signal });
 }

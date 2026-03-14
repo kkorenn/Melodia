@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { fetchSongs } from "../lib/api";
 import { GridSkeleton, ListSkeleton } from "../components/LoadingSkeletons";
 import { SongTable } from "../components/SongTable";
 import { SongGrid } from "../components/SongGrid";
 import { ViewModeToggle } from "../components/ViewModeToggle";
+import { useAbortableRequest } from "../hooks/useAbortableRequest";
 import { useSongActions } from "../hooks/useSongActions";
 import { useAppStore } from "../store/appStore";
 import { usePlayerStore, selectCurrentSong } from "../store/playerStore";
@@ -13,9 +14,7 @@ export function LibraryPage() {
   const [total, setTotal] = useState(0);
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(false);
-  const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [error, setError] = useState("");
   const [sort, setSort] = useState("title");
   const [direction, setDirection] = useState("asc");
 
@@ -26,35 +25,25 @@ export function LibraryPage() {
   const gridSize = useAppStore((state) => state.gridSize);
   const setGridSize = useAppStore((state) => state.setGridSize);
 
-  const loadInitial = (signal) => {
-    setLoading(true);
-    setError("");
-
-    fetchSongs({ offset: 0, limit: 200, sort, direction, signal })
-      .then((data) => {
+  const loadInitial = useCallback(
+    (signal) => {
+      return fetchSongs({ offset: 0, limit: 200, sort, direction, signal }).then((data) => {
         setSongs(data.rows || []);
         setOffset((data.rows || []).length);
         setHasMore(Boolean(data.hasMore));
         setTotal(data.total || 0);
-      })
-      .catch((err) => {
-        if (err?.name === "AbortError") {
-          return;
-        }
-        setError(err.message || "Could not load songs");
-      })
-      .finally(() => {
-        if (!signal?.aborted) {
-          setLoading(false);
-        }
       });
-  };
+    },
+    [sort, direction]
+  );
 
-  useEffect(() => {
-    const controller = new AbortController();
-    loadInitial(controller.signal);
-    return () => controller.abort();
-  }, [sort, direction]);
+  const {
+    loading,
+    error,
+    setError
+  } = useAbortableRequest(loadInitial, [loadInitial], {
+    fallbackErrorMessage: "Could not load songs"
+  });
 
   const loadMore = () => {
     if (loadingMore || !hasMore) {

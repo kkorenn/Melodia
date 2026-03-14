@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { fetchRecentlyPlayed } from "../lib/api";
 import { ListSkeleton } from "../components/LoadingSkeletons";
 import { SongTable } from "../components/SongTable";
 import { useSongActions } from "../hooks/useSongActions";
+import { useAbortableRequest } from "../hooks/useAbortableRequest";
 import { usePlayerStore, selectCurrentSong } from "../store/playerStore";
 
 function dedupeRecentlyPlayed(rows) {
@@ -27,8 +28,6 @@ function dedupeRecentlyPlayed(rows) {
 
 export function RecentlyPlayedPage() {
   const [songs, setSongs] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
   const lastInjectedSongIdRef = useRef(null);
 
   const currentSong = usePlayerStore((state) => selectCurrentSong(state));
@@ -36,25 +35,18 @@ export function RecentlyPlayedPage() {
   const currentSongId = currentSong?.id;
   const { playSong, queueSong, goToArtist, goToAlbum } = useSongActions();
 
-  useEffect(() => {
-    const controller = new AbortController();
-
-    fetchRecentlyPlayed(300, { signal: controller.signal })
-      .then((data) => setSongs(dedupeRecentlyPlayed(data.rows || [])))
-      .catch((err) => {
-        if (err?.name === "AbortError") {
-          return;
-        }
-        setError(err.message || "Could not load recently played songs");
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) {
-          setLoading(false);
-        }
-      });
-
-    return () => controller.abort();
+  const loadRecentlyPlayed = useCallback((signal) => {
+    return fetchRecentlyPlayed(300, { signal }).then((data) => {
+      setSongs(dedupeRecentlyPlayed(data.rows || []));
+    });
   }, []);
+
+  const {
+    loading,
+    error
+  } = useAbortableRequest(loadRecentlyPlayed, [loadRecentlyPlayed], {
+    fallbackErrorMessage: "Could not load recently played songs"
+  });
 
   useEffect(() => {
     if (!isPlaying || !currentSong?.id) {

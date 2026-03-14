@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import clsx from "clsx";
 import { useNavigate } from "react-router-dom";
 import { fetchArtists } from "../lib/api";
 import { CoverArt } from "../components/CoverArt";
 import { GridSkeleton, ListSkeleton } from "../components/LoadingSkeletons";
 import { ViewModeToggle } from "../components/ViewModeToggle";
+import { useAbortableRequest } from "../hooks/useAbortableRequest";
 import { useAppStore } from "../store/appStore";
 import { formatLargeNumber, formatRelativeDate } from "../utils/format";
 
@@ -17,44 +18,33 @@ export function ArtistsPage() {
     totalPlays: 0,
     activeArtists30d: 0
   });
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
   const navigate = useNavigate();
   const viewMode = useAppStore((state) => state.viewModes?.artists || "grid");
   const setViewMode = useAppStore((state) => state.setViewMode);
   const gridSize = useAppStore((state) => state.gridSize);
   const setGridSize = useAppStore((state) => state.setGridSize);
 
-  useEffect(() => {
-    const controller = new AbortController();
-
-    fetchArtists({ signal: controller.signal })
-      .then((data) => {
-        setArtists(data.rows || []);
-        setStats(
-          data.stats || {
-            artistCount: 0,
-            totalSongs: 0,
-            totalAlbums: 0,
-            totalPlays: 0,
-            activeArtists30d: 0
-          }
-        );
-      })
-      .catch((err) => {
-        if (err?.name === "AbortError") {
-          return;
+  const loadArtists = useCallback((signal) => {
+    return fetchArtists({ signal }).then((data) => {
+      setArtists(data.rows || []);
+      setStats(
+        data.stats || {
+          artistCount: 0,
+          totalSongs: 0,
+          totalAlbums: 0,
+          totalPlays: 0,
+          activeArtists30d: 0
         }
-        setError(err.message || "Failed to load artists");
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) {
-          setLoading(false);
-        }
-      });
-
-    return () => controller.abort();
+      );
+    });
   }, []);
+
+  const {
+    loading,
+    error
+  } = useAbortableRequest(loadArtists, [loadArtists], {
+    fallbackErrorMessage: "Failed to load artists"
+  });
 
   if (loading) {
     return viewMode === "list" ? (

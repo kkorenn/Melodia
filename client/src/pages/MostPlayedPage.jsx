@@ -1,37 +1,29 @@
-import { useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { fetchMostPlayed } from "../lib/api";
 import { ListSkeleton } from "../components/LoadingSkeletons";
 import { SongTable } from "../components/SongTable";
 import { useSongActions } from "../hooks/useSongActions";
+import { useAbortableRequest } from "../hooks/useAbortableRequest";
 import { usePlayerStore, selectCurrentSong } from "../store/playerStore";
 
 export function MostPlayedPage() {
   const [songs, setSongs] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
 
   const currentSongId = usePlayerStore((state) => selectCurrentSong(state)?.id);
   const { playSong, queueSong, goToArtist, goToAlbum } = useSongActions();
 
-  useEffect(() => {
-    const controller = new AbortController();
-
-    fetchMostPlayed(300, { signal: controller.signal })
-      .then((data) => setSongs(data.rows || []))
-      .catch((err) => {
-        if (err?.name === "AbortError") {
-          return;
-        }
-        setError(err.message || "Could not load most played");
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) {
-          setLoading(false);
-        }
-      });
-
-    return () => controller.abort();
+  const loadMostPlayed = useCallback((signal) => {
+    return fetchMostPlayed(300, { signal }).then((data) => {
+      setSongs(data.rows || []);
+    });
   }, []);
+
+  const {
+    loading,
+    error
+  } = useAbortableRequest(loadMostPlayed, [loadMostPlayed], {
+    fallbackErrorMessage: "Could not load most played"
+  });
 
   if (loading) {
     return <ListSkeleton rows={10} withArt />;
