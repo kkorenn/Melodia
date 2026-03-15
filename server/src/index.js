@@ -7,6 +7,7 @@ const cors = require("cors");
 const compression = require("compression");
 const mime = require("mime-types");
 const openModule = require("open");
+const sharp = require("sharp");
 
 const { getConfig } = require("./config");
 const {
@@ -135,10 +136,12 @@ const {
   removeSongFromPlaylistTx,
   sortPlaylistTx
 } = createPlaylistRepo(db);
+const PLAYLIST_OG_IMAGE_SIZE = 1200;
 const playlistMetaStmt = db.prepare(
   `SELECT
     p.id,
     p.name,
+    p.updated_at AS updatedAt,
     COUNT(ps.song_id) AS songCount,
     CASE WHEN p.cover_art IS NOT NULL THEN 1 ELSE 0 END AS hasCustomArt,
     MIN(CASE WHEN s.cover_art IS NOT NULL THEN s.id END) AS fallbackArtSongId
@@ -147,6 +150,21 @@ const playlistMetaStmt = db.prepare(
   LEFT JOIN songs s ON s.id = ps.song_id
   WHERE p.id = ?
   GROUP BY p.id`
+);
+const playlistArtSourceStmt = db.prepare(
+  `SELECT
+    p.cover_art AS playlistCoverArt,
+    p.cover_art_mime AS playlistCoverArtMime,
+    p.updated_at AS playlistUpdatedAt,
+    s.cover_art AS firstSongCoverArt,
+    s.cover_art_mime AS firstSongCoverArtMime,
+    s.last_modified AS firstSongLastModified
+  FROM playlists p
+  LEFT JOIN playlist_songs ps ON ps.playlist_id = p.id
+  LEFT JOIN songs s ON s.id = ps.song_id
+  WHERE p.id = ?
+  ORDER BY ps.position ASC
+  LIMIT 1`
 );
 
 const songForLyricsStmt = db.prepare(
@@ -993,6 +1011,8 @@ function buildPlaylistPageMeta(req, playlistId) {
 
   const songCount = Number(playlist.songCount || 0);
   const hasArt = Boolean(playlist.hasCustomArt) || Number(playlist.fallbackArtSongId || 0) > 0;
+  const imageVersion = Number(playlist.updatedAt || 0);
+  const imageQuery = imageVersion > 0 ? `?v=${imageVersion}` : "";
 
   return {
     title: `${playlist.name} • Playlist on ${appName}`,
@@ -1001,10 +1021,43 @@ function buildPlaylistPageMeta(req, playlistId) {
         ? "1 song playlist on Melodia."
         : `${songCount} songs playlist on Melodia.`,
     url,
-    image: hasArt ? `${origin}/api/playlists/${playlistId}/art` : `${origin}/favicon.svg`,
+    image: hasArt
+      ? `${origin}/api/playlists/${playlistId}/og-image${imageQuery}`
+      : `${origin}/favicon.svg`,
     imageAlt: `${playlist.name} playlist cover`,
     siteName: appName
   };
+}
+
+function getPlaylistArtSource(playlistId) {
+  const row = playlistArtSourceStmt.get(playlistId);
+  if (!row) {
+    return { status: "missing_playlist", source: null };
+  }
+
+  if (row.playlistCoverArt) {
+    return {
+      status: "ok",
+      source: {
+        buffer: row.playlistCoverArt,
+        mimeType: row.playlistCoverArtMime || "image/jpeg",
+        version: Number(row.playlistUpdatedAt || 0)
+      }
+    };
+  }
+
+  if (row.firstSongCoverArt) {
+    return {
+      status: "ok",
+      source: {
+        buffer: row.firstSongCoverArt,
+        mimeType: row.firstSongCoverArtMime || "image/jpeg",
+        version: Number(row.firstSongLastModified || 0)
+      }
+    };
+  }
+
+  return { status: "missing_art", source: null };
 }
 
 app.use(cors());
@@ -1996,41 +2049,76 @@ app.get("/api/playlists/:playlistId/art", (req, res) => {
     return res.status(400).json({ error: "Invalid playlist id" });
   }
 
-  const row = db
-    .prepare(
-      `SELECT
-        p.cover_art AS playlistCoverArt,
-        p.cover_art_mime AS playlistCoverArtMime,
-        p.updated_at AS playlistUpdatedAt,
-        s.cover_art AS firstSongCoverArt,
-        s.cover_art_mime AS firstSongCoverArtMime,
-        s.last_modified AS firstSongLastModified
-      FROM playlists p
-      LEFT JOIN playlist_songs ps ON ps.playlist_id = p.id
-      LEFT JOIN songs s ON s.id = ps.song_id
-      WHERE p.id = ?
-      ORDER BY ps.position ASC
-      LIMIT 1`
-    )
-    .get(playlistId);
-
-  if (!row) {
+  const { status, source } = getPlaylistArtSource(playlistId);
+  if (status === "missing_playlist") {
     return res.status(404).json({ error: "Playlist not found" });
   }
-
-  if (row.playlistCoverArt) {
-    res.setHeader("Cache-Control", "public, max-age=86400");
-    res.type(row.playlistCoverArtMime || "image/jpeg");
-    return res.send(row.playlistCoverArt);
+  if (status === "missing_art" || !source) {
+    return res.status(404).json({ error: "Cover art not available" });
   }
 
-  if (row.firstSongCoverArt) {
-    res.setHeader("Cache-Control", "public, max-age=86400");
-    res.type(row.firstSongCoverArtMime || "image/jpeg");
-    return res.send(row.firstSongCoverArt);
+  res.setHeader("Cache-Control", "public, max-age=86400");
+  res.type(source.mimeType);
+  return res.send(source.buffer);
+});
+
+app.get("/api/playlists/:playlistId/og-image", async (req, res) => {
+  const playlistId = parseId(req.params.playlistId);
+  if (!playlistId) {
+    return res.status(400).json({ error: "Invalid playlist id" });
   }
 
-  return res.status(404).json({ error: "Cover art not available" });
+  const { status, source } = getPlaylistArtSource(playlistId);
+  if (status === "missing_playlist") {
+    return res.status(404).json({ error: "Playlist not found" });
+  }
+  if (status === "missing_art" || !source) {
+    return res.status(404).json({ error: "Cover art not available" });
+  }
+
+  try {
+    const image = sharp(source.buffer, { failOnError: false });
+    const metadata = await image.metadata();
+    const width = Number(metadata.width || 0);
+    const height = Number(metadata.height || 0);
+
+    if (width <= 0 || height <= 0) {
+      return res.status(422).json({ error: "Unsupported cover image" });
+    }
+
+    const squareSize = Math.min(width, height);
+    const left = Math.max(0, Math.floor((width - squareSize) / 2));
+    const top = Math.max(0, Math.floor((height - squareSize) / 2));
+
+    const output = await image
+      .extract({
+        left,
+        top,
+        width: squareSize,
+        height: squareSize
+      })
+      .resize(PLAYLIST_OG_IMAGE_SIZE, PLAYLIST_OG_IMAGE_SIZE, {
+        fit: "cover",
+        position: "centre"
+      })
+      .jpeg({
+        quality: 88,
+        chromaSubsampling: "4:4:4",
+        mozjpeg: true
+      })
+      .toBuffer();
+
+    const version = Number(source.version || 0);
+    res.setHeader("Cache-Control", "public, max-age=86400");
+    if (version > 0) {
+      res.setHeader("ETag", `playlist-og-${playlistId}-${version}`);
+    }
+    res.type("image/jpeg");
+    return res.send(output);
+  } catch (error) {
+    console.error("Could not render playlist OG image:", error);
+    return res.status(500).json({ error: "Could not render playlist OG image" });
+  }
 });
 
 app.get("/api/search", (req, res) => {
