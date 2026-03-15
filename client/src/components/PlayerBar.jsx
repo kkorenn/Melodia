@@ -354,7 +354,12 @@ export function PlayerBar({ currentSong, currentTime, duration, buffered, seek, 
               className="rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
               title={artPanelOpen ? "Collapse cover art" : "Expand cover art"}
             >
-              <CoverArt songId={currentSong?.id} eager className="h-12 w-12 shrink-0 sm:h-14 sm:w-14" />
+              <CoverArt
+                songId={currentSong?.id}
+                eager
+                useLastPlayedCache
+                className="h-12 w-12 shrink-0 sm:h-14 sm:w-14"
+              />
             </button>
             {currentSong && (
               <button
@@ -617,7 +622,7 @@ export function PlayerBar({ currentSong, currentTime, duration, buffered, seek, 
               : "translate-y-8 scale-95 opacity-0"
           )}
         >
-          <CoverArt songId={currentSong.id} eager className="aspect-square w-full" />
+          <CoverArt songId={currentSong.id} eager useLastPlayedCache className="aspect-square w-full" />
           <div className="mt-3">
             <p className="truncate text-base font-semibold text-text">{currentSong.title}</p>
             <p className="truncate text-sm text-textSoft">
