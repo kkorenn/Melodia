@@ -1,5 +1,5 @@
+import { useEffect, useState } from "react";
 import {
-  COLOR_SCHEME_PRESETS,
   COLOR_TOKEN_FIELDS,
   getPresetPalette
 } from "../../lib/colorScheme";
@@ -9,15 +9,33 @@ export function SettingsColorSchemeSection({
   normalizedScheme,
   customEditTheme,
   setCustomEditTheme,
-  showAllPresets,
-  setShowAllPresets,
   presetCards,
   customPalette,
   setColorMode,
+  mainColor,
+  setMainColor,
   applyPreset,
   resetCustomFromPreset,
   updateCustomColor
 }) {
+  const [draftMainColor, setDraftMainColor] = useState(mainColor);
+
+  useEffect(() => {
+    setDraftMainColor(mainColor);
+  }, [mainColor]);
+
+  const handleMainColorInput = (event) => {
+    const nextValue = event?.target?.value;
+    if (typeof nextValue !== "string" || !nextValue) {
+      return;
+    }
+
+    setDraftMainColor(nextValue);
+    setMainColor(nextValue);
+  };
+
+  const visiblePresetCards = Array.isArray(presetCards) ? presetCards.slice(0, 11) : [];
+
   return (
     <section className="space-y-3 rounded-xl border border-[color:var(--border)] bg-panelSoft/40 p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -52,26 +70,28 @@ export function SettingsColorSchemeSection({
 
       {normalizedScheme.mode === "preset" && (
         <div className="space-y-2">
-          {COLOR_SCHEME_PRESETS.length > 4 && (
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="text-xs text-textSoft">
-                {showAllPresets
-                  ? `Showing all ${COLOR_SCHEME_PRESETS.length} palettes`
-                  : "Showing 4 common palettes"}
-              </p>
-              <button
-                type="button"
-                onClick={() => setShowAllPresets((previous) => !previous)}
-                className="rounded-lg border border-[color:var(--border)] px-2.5 py-1 text-xs text-textSoft transition hover:border-accent/40 hover:text-text"
-              >
-                {showAllPresets ? "Show Less" : "Show More"}
-              </button>
-            </div>
-          )}
+          <div className="rounded-xl border border-[color:var(--border)] bg-panel/40 p-3">
+            <label className="flex items-center justify-between gap-3 text-xs text-textSoft">
+              <span>Main Color</span>
+              <div className="flex items-center gap-2">
+                <input
+                  type="color"
+                  value={draftMainColor}
+                  onInput={handleMainColorInput}
+                  onChange={handleMainColorInput}
+                  className="h-8 w-10 cursor-pointer rounded border border-[color:var(--border)] bg-transparent p-0"
+                />
+                <span className="w-16 text-right font-mono text-xs text-textSoft">{draftMainColor}</span>
+              </div>
+            </label>
+            <p className="mt-2 text-[11px] text-textSoft/90">
+              Presets below are generated from this color (except Monochrome).
+            </p>
+          </div>
 
           <div className="grid gap-2 md:grid-cols-2">
-            {presetCards.map((preset) => {
-              const previewPalette = getPresetPalette(preset.id, formTheme);
+            {visiblePresetCards.map((preset) => {
+              const previewPalette = getPresetPalette(preset.id, formTheme, draftMainColor);
               const isActive = normalizedScheme.preset === preset.id;
 
               return (

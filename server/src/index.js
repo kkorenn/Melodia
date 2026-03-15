@@ -906,6 +906,7 @@ app.get("/api/settings/auth/status", (req, res) => {
   const authState = getSettingsAuthSession(req);
   return sendJson(res, {
     enabled: config.settingsAuthEnabled,
+    secureCookieRequired: config.settingsAuthSecureCookie === true,
     authenticated: authState.authenticated,
     expiresAt: authState.expiresAt
   });

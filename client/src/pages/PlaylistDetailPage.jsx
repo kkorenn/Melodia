@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   Check,
   ImagePlus,
@@ -35,6 +35,85 @@ import {
 import { useSongActions } from "../hooks/useSongActions";
 import { usePlayerStore, selectCurrentSong } from "../store/playerStore";
 
+function normalizeSortText(value) {
+  return String(value || "").trim().toLocaleLowerCase();
+}
+
+function normalizeSortNumber(value) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function compareNullable(left, right) {
+  if (left == null && right == null) {
+    return 0;
+  }
+  if (left == null) {
+    return 1;
+  }
+  if (right == null) {
+    return -1;
+  }
+
+  if (typeof left === "number" && typeof right === "number") {
+    return left - right;
+  }
+
+  return String(left).localeCompare(String(right), undefined, {
+    sensitivity: "base",
+    numeric: true
+  });
+}
+
+function getSongSortValue(song, sortBy) {
+  switch (sortBy) {
+    case "title":
+      return normalizeSortText(song.title || song.filename);
+    case "artist":
+      return normalizeSortText(song.artist);
+    case "album":
+      return normalizeSortText(song.album);
+    case "duration":
+      return normalizeSortNumber(song.duration);
+    case "year":
+      return normalizeSortNumber(song.year);
+    case "dateAdded":
+      return normalizeSortNumber(song.dateAdded);
+    case "addedAt":
+      return normalizeSortNumber(song.addedAt);
+    case "position":
+    default:
+      return normalizeSortNumber(song.playlistPosition);
+  }
+}
+
+function sortPlaylistRowsLocal(rows, sortBy, sortDirection) {
+  const direction = sortDirection === "desc" ? -1 : 1;
+  const withIndex = rows.map((song, index) => ({ song, index }));
+
+  withIndex.sort((left, right) => {
+    const primary = compareNullable(
+      getSongSortValue(left.song, sortBy),
+      getSongSortValue(right.song, sortBy)
+    );
+    if (primary !== 0) {
+      return primary * direction;
+    }
+
+    const positionTieBreak = compareNullable(
+      normalizeSortNumber(left.song.playlistPosition),
+      normalizeSortNumber(right.song.playlistPosition)
+    );
+    if (positionTieBreak !== 0) {
+      return positionTieBreak;
+    }
+
+    return left.index - right.index;
+  });
+
+  return withIndex.map((entry) => entry.song);
+}
+
 export function PlaylistDetailPage() {
   const params = useParams();
   const playlistId = Number.parseInt(params.playlistId || "", 10);
@@ -56,6 +135,9 @@ export function PlaylistDetailPage() {
   const [nameDraft, setNameDraft] = useState("");
   const [sortBy, setSortBy] = useState("position");
   const [sortDirection, setSortDirection] = useState("asc");
+  const songItemRefs = useRef(new Map());
+  const previousTopBySongIdRef = useRef(new Map());
+  const hasMeasuredSongPositionsRef = useRef(false);
 
   const currentSongId = usePlayerStore((state) => selectCurrentSong(state)?.id);
   const { playSong } = useSongActions();
@@ -67,6 +149,10 @@ export function PlaylistDetailPage() {
   const canEditPlaylist = !permissionLoading && canManageProtectedActions;
 
   const songIdsInPlaylist = useMemo(() => new Set(songs.map((song) => song.id)), [songs]);
+  const songOrderSignature = useMemo(
+    () => songs.map((song) => song.id).join(","),
+    [songs]
+  );
 
   const handlePlaylistWriteError = (err, fallbackMessage) => {
     if (isSettingsAuthRequiredError(err)) {
@@ -152,6 +238,57 @@ export function PlaylistDetailPage() {
 
     return () => controller.abort();
   }, [debouncedQuery]);
+
+  useEffect(() => {
+    previousTopBySongIdRef.current = new Map();
+    hasMeasuredSongPositionsRef.current = false;
+  }, [playlistId]);
+
+  useLayoutEffect(() => {
+    const nextTopBySongId = new Map();
+    for (const song of songs) {
+      const node = songItemRefs.current.get(song.id);
+      if (!node) {
+        continue;
+      }
+      nextTopBySongId.set(song.id, node.getBoundingClientRect().top);
+    }
+
+    const prefersReducedMotion =
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+
+    // FLIP-style animation for row reordering (sorting, etc.).
+    if (hasMeasuredSongPositionsRef.current && !prefersReducedMotion) {
+      for (const song of songs) {
+        const node = songItemRefs.current.get(song.id);
+        const previousTop = previousTopBySongIdRef.current.get(song.id);
+        const nextTop = nextTopBySongId.get(song.id);
+        if (!node || previousTop == null || nextTop == null) {
+          continue;
+        }
+
+        const deltaY = previousTop - nextTop;
+        if (Math.abs(deltaY) < 1) {
+          continue;
+        }
+
+        node.animate(
+          [
+            { transform: `translateY(${deltaY}px)` },
+            { transform: "translateY(0)" }
+          ],
+          {
+            duration: 380,
+            easing: "cubic-bezier(0.22, 1, 0.36, 1)"
+          }
+        );
+      }
+    }
+
+    previousTopBySongIdRef.current = nextTopBySongId;
+    hasMeasuredSongPositionsRef.current = true;
+  }, [songOrderSignature, songs.length]);
 
   const refreshPlaylistOnly = () => {
     return loadPlaylist().catch((err) => {
@@ -258,7 +395,19 @@ export function PlaylistDetailPage() {
   };
 
   const applyPlaylistSort = (nextSortBy = sortBy, nextSortDirection = sortDirection) => {
-    if (!playlist || sortingPlaylist || !songs.length) {
+    if (!songs.length) {
+      return;
+    }
+
+    if (!canEditPlaylist) {
+      setError("");
+      setSongs((previous) =>
+        sortPlaylistRowsLocal(previous, nextSortBy, nextSortDirection)
+      );
+      return;
+    }
+
+    if (!playlist || sortingPlaylist) {
       return;
     }
 
@@ -333,11 +482,6 @@ export function PlaylistDetailPage() {
             ) : (
               <div className="space-y-2">
                 <h1 className="text-2xl font-semibold text-text">{playlist.name}</h1>
-                <SettingsLockedNotice>
-                  {permissionLoading
-                    ? "Checking playlist edit permission..."
-                    : "Unlock Settings in Settings to rename this playlist."}
-                </SettingsLockedNotice>
               </div>
             )}
 
@@ -438,6 +582,13 @@ export function PlaylistDetailPage() {
           {songs.map((song, index) => (
             <div
               key={song.id}
+              ref={(node) => {
+                if (node) {
+                  songItemRefs.current.set(song.id, node);
+                } else {
+                  songItemRefs.current.delete(song.id);
+                }
+              }}
               className={`flex items-center gap-3 rounded-xl border px-3 py-2 transition ${
                 currentSongId === song.id
                   ? "border-accent/40 bg-accent/10"

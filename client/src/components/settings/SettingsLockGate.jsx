@@ -48,7 +48,6 @@ export function SettingsLockGate({
           >
             {unlocking ? "Unlocking..." : "Unlock Settings"}
           </Button>
-          <span className="text-xs text-textSoft">Rate limit: 1 try every 5 seconds</span>
         </div>
 
         {message && <p className="text-sm text-emerald-300">{message}</p>}

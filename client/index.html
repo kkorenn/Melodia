@@ -6,6 +6,94 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content"
     />
+    <script>
+      (() => {
+        const BOOTSTRAP_KEY = "melodia-theme-bootstrap-v1";
+        const APP_STORE_KEY = "melodia-app";
+        const root = document.documentElement;
+
+        const applyThemeClass = (theme) => {
+          if (theme === "light") {
+            root.classList.add("light");
+            return;
+          }
+          root.classList.remove("light");
+        };
+
+        const applyBootstrapPalette = (payload) => {
+          if (!payload || typeof payload !== "object") {
+            return false;
+          }
+
+          const theme = payload.theme === "light" ? "light" : "dark";
+          const palette = payload.palette;
+
+          if (!palette || typeof palette !== "object") {
+            return false;
+          }
+
+          const requiredKeys = [
+            "shell",
+            "panel",
+            "panelSoft",
+            "text",
+            "textSoft",
+            "accent",
+            "accentWarm"
+          ];
+
+          for (const key of requiredKeys) {
+            if (typeof palette[key] !== "string" || !palette[key].trim()) {
+              return false;
+            }
+          }
+
+          applyThemeClass(theme);
+          root.style.setProperty("--color-shell", palette.shell);
+          root.style.setProperty("--color-panel", palette.panel);
+          root.style.setProperty("--color-panel-soft", palette.panelSoft);
+          root.style.setProperty("--color-text", palette.text);
+          root.style.setProperty("--color-text-soft", palette.textSoft);
+          root.style.setProperty("--color-accent", palette.accent);
+          root.style.setProperty("--color-accent-warm", palette.accentWarm);
+          root.style.setProperty(
+            "--accent-soft",
+            `rgb(${palette.accent} / ${theme === "light" ? "0.18" : "0.22"})`
+          );
+          root.style.setProperty(
+            "--glow-color",
+            `rgb(${palette.accent} / ${theme === "light" ? "0.22" : "0.28"})`
+          );
+          return true;
+        };
+
+        try {
+          const rawBootstrap = window.localStorage.getItem(BOOTSTRAP_KEY);
+          if (rawBootstrap) {
+            const parsedBootstrap = JSON.parse(rawBootstrap);
+            if (applyBootstrapPalette(parsedBootstrap)) {
+              return;
+            }
+          }
+        } catch {
+          // no-op
+        }
+
+        try {
+          const rawAppState = window.localStorage.getItem(APP_STORE_KEY);
+          if (!rawAppState) {
+            return;
+          }
+          const parsedAppState = JSON.parse(rawAppState);
+          const savedTheme = parsedAppState?.state?.theme;
+          if (savedTheme === "light" || savedTheme === "dark") {
+            applyThemeClass(savedTheme);
+          }
+        } catch {
+          // no-op
+        }
+      })();
+    </script>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>Melodia</title>
   </head>

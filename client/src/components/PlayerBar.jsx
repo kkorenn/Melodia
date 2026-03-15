@@ -430,7 +430,7 @@ export function PlayerBar({ currentSong, currentTime, duration, buffered, seek, 
             </button>
             <button
               type="button"
-              title="Previous (←)"
+              title="Previous (Shift+←)"
               onClick={previous}
               className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[color:var(--border)] text-textSoft transition hover:border-accent/40 hover:text-text"
             >
@@ -462,7 +462,7 @@ export function PlayerBar({ currentSong, currentTime, duration, buffered, seek, 
             </button>
             <button
               type="button"
-              title="Next (→)"
+              title="Next (Shift+→)"
               onClick={next}
               className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[color:var(--border)] text-textSoft transition hover:border-accent/40 hover:text-text"
             >

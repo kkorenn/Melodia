@@ -28,6 +28,9 @@ function isEditableTarget(target) {
   );
 }
 
+const SEEK_STEP_SECONDS = 5;
+const PREVIOUS_TRACK_THRESHOLD_SECONDS = 5;
+
 export function useAudioEngine() {
   const {
     queue,
@@ -113,6 +116,24 @@ export function useAudioEngine() {
     }
 
     state.setCurrentIndex(nextIndex, true);
+  }
+
+  function seekByOffsetSeconds(offsetSeconds) {
+    const active = activeAudioRef.current;
+    if (
+      !active ||
+      !Number.isFinite(active.duration) ||
+      active.duration <= 0 ||
+      !Number.isFinite(offsetSeconds) ||
+      offsetSeconds === 0
+    ) {
+      return;
+    }
+
+    const currentTime = Number.isFinite(active.currentTime) ? active.currentTime : 0;
+    const nextTime = Math.max(0, Math.min(active.duration, currentTime + offsetSeconds));
+    active.currentTime = nextTime;
+    syncAudioState();
   }
 
   function maybeSwapToPreloadedSong(songId) {
@@ -334,17 +355,34 @@ export function useAudioEngine() {
 
       if (event.code === "ArrowRight") {
         event.preventDefault();
-        const state = usePlayerStore.getState();
-        const nextIndex = predictNextIndex(state);
-        if (nextIndex >= 0) {
-          setCurrentIndex(nextIndex, true);
+        if (event.shiftKey) {
+          const state = usePlayerStore.getState();
+          const nextIndex = predictNextIndex(state);
+          if (nextIndex >= 0) {
+            setCurrentIndex(nextIndex, true);
+          }
+          return;
         }
+        seekByOffsetSeconds(SEEK_STEP_SECONDS);
         return;
       }
 
       if (event.code === "ArrowLeft") {
         event.preventDefault();
-        previous();
+        if (event.shiftKey) {
+          const active = activeAudioRef.current;
+          const currentTime = Number.isFinite(active?.currentTime)
+            ? active.currentTime
+            : 0;
+          if (active && currentTime >= PREVIOUS_TRACK_THRESHOLD_SECONDS) {
+            active.currentTime = 0;
+            syncAudioState();
+            return;
+          }
+          previous();
+          return;
+        }
+        seekByOffsetSeconds(-SEEK_STEP_SECONDS);
         return;
       }
 

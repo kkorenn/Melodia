@@ -1,8 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import {
-  COMMON_COLOR_SCHEME_PRESET_IDS,
-  COLOR_SCHEME_PRESETS,
   getDefaultColorScheme,
   getPresetPalette,
   normalizeColorScheme,
@@ -24,6 +22,20 @@ import { SettingsScanProgressCard } from "../components/settings/SettingsScanPro
 import { SettingsLibraryStatsCards } from "../components/settings/SettingsLibraryStatsCards";
 import { Input } from "../components/ui/input";
 import { useAppStore } from "../store/appStore";
+
+const COMPACT_PRESET_CARDS = [
+  { id: "main-core", name: "Core" },
+  { id: "main-vivid", name: "Vivid" },
+  { id: "main-deep", name: "Deep" },
+  { id: "main-muted", name: "Muted" },
+  { id: "main-soft", name: "Soft" },
+  { id: "main-night", name: "Night" },
+  { id: "main-glow", name: "Glow" },
+  { id: "main-ember", name: "Ember" },
+  { id: "main-pastel", name: "Pastel" },
+  { id: "main-contrast", name: "High Contrast" },
+  { id: "mono", name: "Monochrome" }
+];
 
 export function SettingsPage() {
   const {
@@ -58,44 +70,28 @@ export function SettingsPage() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [rescanning, setRescanning] = useState(false);
-  const [showAllPresets, setShowAllPresets] = useState(false);
   const [authState, setAuthState] = useState({
     loading: true,
     enabled: false,
+    secureCookieRequired: false,
     authenticated: false,
     expiresAt: null
   });
+  const [insecureHttpChoice, setInsecureHttpChoice] = useState(null);
   const [settingsPassword, setSettingsPassword] = useState("");
   const [unlocking, setUnlocking] = useState(false);
   const hasHydratedRef = useRef(false);
   const lastSavedSignatureRef = useRef("");
   const saveRequestIdRef = useRef(0);
+  const isInsecureProtocol =
+    typeof window !== "undefined" && window.location.protocol !== "https:";
 
   const normalizedScheme = useMemo(
     () => normalizeColorScheme(form.colorScheme),
     [form.colorScheme]
   );
   const customPalette = normalizedScheme.custom[customEditTheme];
-  const presetCards = useMemo(() => {
-    const allPresets = COLOR_SCHEME_PRESETS;
-    if (showAllPresets || allPresets.length <= 4) {
-      return allPresets;
-    }
-
-    const commonSet = new Set(COMMON_COLOR_SCHEME_PRESET_IDS);
-    const commonPresets = allPresets.filter((preset) => commonSet.has(preset.id));
-    const fallbackCommon = commonPresets.length ? commonPresets : allPresets.slice(0, 4);
-
-    if (fallbackCommon.some((preset) => preset.id === normalizedScheme.preset)) {
-      return fallbackCommon;
-    }
-
-    const activePreset = allPresets.find(
-      (preset) => preset.id === normalizedScheme.preset
-    );
-
-    return activePreset ? [...fallbackCommon, activePreset] : fallbackCommon;
-  }, [normalizedScheme.preset, showAllPresets]);
+  const presetCards = COMPACT_PRESET_CARDS;
   const autoSavePayload = useMemo(
     () => ({
       musicDir: form.musicDir,
@@ -150,7 +146,7 @@ export function SettingsPage() {
               enabled: true,
               authenticated: false
             }));
-            setError("Settings are locked. Enter your password to continue.");
+            setError("Enter your settings password to continue.");
             return;
           }
 
@@ -167,13 +163,14 @@ export function SettingsPage() {
         setAuthState({
           loading: false,
           enabled: Boolean(status?.enabled),
+          secureCookieRequired: Boolean(status?.secureCookieRequired),
           authenticated: Boolean(status?.authenticated),
           expiresAt: status?.expiresAt || null
         });
 
         if (status?.enabled && !status?.authenticated) {
           hasHydratedRef.current = false;
-          setMessage("Settings are locked.");
+          setMessage("");
           return;
         }
 
@@ -298,9 +295,16 @@ export function SettingsPage() {
     updateScheme((current) => ({
       ...current,
       custom: {
-        dark: getPresetPalette(current.preset, "dark"),
-        light: getPresetPalette(current.preset, "light")
+        dark: getPresetPalette(current.preset, "dark", current.seedColor),
+        light: getPresetPalette(current.preset, "light", current.seedColor)
       }
+    }));
+  };
+
+  const updatePresetMainColor = (nextHexValue) => {
+    updateScheme((current) => ({
+      ...current,
+      seedColor: normalizeHexColor(nextHexValue, current.seedColor)
     }));
   };
 
@@ -420,9 +424,29 @@ export function SettingsPage() {
           ...previous,
           authenticated: false
         }));
-        setMessage("Settings locked.");
+        setMessage("");
       });
   };
+
+  const handleEnterInsecureHttpWarning = () => {
+    setInsecureHttpChoice("enter");
+  };
+
+  const handleLeaveInsecureHttpWarning = () => {
+    setInsecureHttpChoice("leave");
+    setError(
+      "Please enter through a HTTPS domain, your settings won't save and will not load things."
+    );
+    if (authState.authenticated) {
+      lockSettings();
+    }
+  };
+
+  const showInsecureHttpWarning =
+    authState.enabled &&
+    authState.secureCookieRequired &&
+    isInsecureProtocol &&
+    insecureHttpChoice === null;
 
   const applyTheme = (nextTheme) => {
     setForm((previous) => ({ ...previous, theme: nextTheme }));
@@ -431,139 +455,182 @@ export function SettingsPage() {
     setError("");
   };
 
-  const settingsLocked = authState.enabled && !authState.authenticated;
+  const settingsLocked =
+    authState.enabled &&
+    (!authState.authenticated || insecureHttpChoice === "leave");
+
+  const insecureHttpWarningModal = showInsecureHttpWarning ? (
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/65 p-4">
+      <div className="w-full max-w-xl rounded-2xl border border-rose-400/40 bg-panel p-5 shadow-2xl">
+        <h3 className="text-lg font-semibold text-text">HTTPS Required</h3>
+        <p className="mt-2 text-sm text-textSoft">
+          Please enter through a HTTPS domain, your settings won't save and will not load things.
+        </p>
+        <div className="mt-4 flex flex-wrap justify-end gap-2">
+          <button
+            type="button"
+            onClick={handleEnterInsecureHttpWarning}
+            className="rounded-xl bg-accent px-4 py-2 text-sm font-medium text-shell transition hover:opacity-90"
+          >
+            Enter
+          </button>
+          <button
+            type="button"
+            onClick={handleLeaveInsecureHttpWarning}
+            className="rounded-xl border border-[color:var(--border)] px-4 py-2 text-sm text-textSoft transition hover:border-accent/40 hover:text-text"
+          >
+            Leave
+          </button>
+        </div>
+      </div>
+    </div>
+  ) : null;
 
   if (authState.loading) {
-    return <p className="text-sm text-textSoft">Checking settings access...</p>;
+    return (
+      <>
+        <p className="text-sm text-textSoft">Checking settings access...</p>
+        {insecureHttpWarningModal}
+      </>
+    );
   }
 
   if (settingsLocked) {
     return (
-      <SettingsLockGate
-        settingsPassword={settingsPassword}
-        setSettingsPassword={setSettingsPassword}
-        unlocking={unlocking}
-        unlockSettings={unlockSettings}
-        message={message}
-        error={error}
-      />
+      <>
+        <SettingsLockGate
+          settingsPassword={settingsPassword}
+          setSettingsPassword={setSettingsPassword}
+          unlocking={unlocking}
+          unlockSettings={unlockSettings}
+          message={message}
+          error={error}
+        />
+        {insecureHttpWarningModal}
+      </>
     );
   }
 
   return (
-    <section className="space-y-5">
-      <div>
-        <h2 className="text-2xl font-semibold text-text">Settings</h2>
-        <p className="text-sm text-textSoft">Local-only configuration for Melodia</p>
-        {authState.enabled && (
-          <button
-            type="button"
-            onClick={lockSettings}
-            className="mt-2 rounded-lg border border-[color:var(--border)] px-2.5 py-1.5 text-xs text-textSoft transition hover:border-accent/40 hover:text-text"
-          >
-            Lock Settings
-          </button>
-        )}
-      </div>
-
-      <div className="space-y-4 rounded-2xl border border-[color:var(--border)] bg-panel/70 p-4">
-        <label className="block text-sm text-textSoft">
-          Music Root Folder
-          <Input
-            value={form.musicDir}
-            onChange={(event) =>
-              setForm((previous) => ({ ...previous, musicDir: event.target.value }))
-            }
-            className="mt-1 h-10 rounded-xl"
-            placeholder="/absolute/path/to/music"
-          />
-        </label>
-
-        <label className="block text-sm text-textSoft">
-          API Port (restart required after change)
-          <Input
-            type="number"
-            min={1}
-            value={form.port}
-            onChange={(event) =>
-              setForm((previous) => ({ ...previous, port: Number(event.target.value) || 4872 }))
-            }
-            className="mt-1 h-10 rounded-xl"
-          />
-        </label>
-
+    <>
+      <section className="space-y-5">
         <div>
-          <p className="text-sm text-textSoft">Theme</p>
-          <div className="mt-1 flex gap-2">
+          <h2 className="text-2xl font-semibold text-text">Settings</h2>
+          <p className="text-sm text-textSoft">Local-only configuration for Melodia</p>
+          {authState.enabled && (
             <button
               type="button"
-              onClick={() => applyTheme("dark")}
-              className={`rounded-xl px-3 py-2 text-sm transition ${
-                form.theme === "dark"
-                  ? "bg-accent text-shell"
-                  : "border border-[color:var(--border)] text-textSoft hover:text-text"
-              }`}
+              onClick={lockSettings}
+              className="mt-2 rounded-lg border border-[color:var(--border)] px-2.5 py-1.5 text-xs text-textSoft transition hover:border-accent/40 hover:text-text"
             >
-              Dark
+              Lock Settings
             </button>
-            <button
-              type="button"
-              onClick={() => applyTheme("light")}
-              className={`rounded-xl px-3 py-2 text-sm transition ${
-                form.theme === "light"
-                  ? "bg-accent text-shell"
-                  : "border border-[color:var(--border)] text-textSoft hover:text-text"
-              }`}
-            >
-              Light
-            </button>
+          )}
+        </div>
+
+        <div className="space-y-4 rounded-2xl border border-[color:var(--border)] bg-panel/70 p-4">
+          <label className="block text-sm text-textSoft">
+            Music Root Folder
+            <Input
+              value={form.musicDir}
+              onChange={(event) =>
+                setForm((previous) => ({ ...previous, musicDir: event.target.value }))
+              }
+              className="mt-1 h-10 rounded-xl"
+              placeholder="/absolute/path/to/music"
+            />
+          </label>
+
+          <label className="block text-sm text-textSoft">
+            API Port (restart required after change)
+            <Input
+              type="number"
+              min={1}
+              value={form.port}
+              onChange={(event) =>
+                setForm((previous) => ({ ...previous, port: Number(event.target.value) || 4872 }))
+              }
+              className="mt-1 h-10 rounded-xl"
+            />
+          </label>
+
+          <div>
+            <p className="text-sm text-textSoft">Theme</p>
+            <div className="mt-1 flex gap-2">
+              <button
+                type="button"
+                onClick={() => applyTheme("dark")}
+                className={`rounded-xl px-3 py-2 text-sm transition ${
+                  form.theme === "dark"
+                    ? "bg-accent text-shell"
+                    : "border border-[color:var(--border)] text-textSoft hover:text-text"
+                }`}
+              >
+                Dark
+              </button>
+              <button
+                type="button"
+                onClick={() => applyTheme("light")}
+                className={`rounded-xl px-3 py-2 text-sm transition ${
+                  form.theme === "light"
+                    ? "bg-accent text-shell"
+                    : "border border-[color:var(--border)] text-textSoft hover:text-text"
+                }`}
+              >
+                Light
+              </button>
+            </div>
           </div>
+
+          <SettingsColorSchemeSection
+            formTheme={form.theme}
+            normalizedScheme={normalizedScheme}
+            customEditTheme={customEditTheme}
+            setCustomEditTheme={setCustomEditTheme}
+            presetCards={presetCards}
+            customPalette={customPalette}
+            setColorMode={(mode) =>
+              updateScheme((current) => ({
+                ...current,
+                mode: mode === "custom" ? "custom" : "preset"
+              }))
+            }
+            mainColor={normalizedScheme.seedColor}
+            setMainColor={updatePresetMainColor}
+            applyPreset={applyPreset}
+            resetCustomFromPreset={resetCustomFromPreset}
+            updateCustomColor={updateCustomColor}
+          />
+
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={startRescan}
+              disabled={scanState.running || rescanning}
+              className="rounded-xl border border-[color:var(--border)] px-4 py-2 text-sm text-textSoft transition hover:border-accent/40 hover:text-text disabled:opacity-60"
+            >
+              {scanState.running || rescanning ? "Scanning..." : "Rescan Library"}
+            </button>
+            <span className="text-xs text-textSoft">
+              {saving ? "Saving..." : "Auto-save enabled"}
+            </span>
+          </div>
+
+          {message && <p className="text-sm text-emerald-300">{message}</p>}
+          {error && <p className="text-sm text-rose-300">{error}</p>}
         </div>
 
-        <SettingsColorSchemeSection
-          formTheme={form.theme}
-          normalizedScheme={normalizedScheme}
-          customEditTheme={customEditTheme}
-          setCustomEditTheme={setCustomEditTheme}
-          showAllPresets={showAllPresets}
-          setShowAllPresets={setShowAllPresets}
-          presetCards={presetCards}
-          customPalette={customPalette}
-          setColorMode={(mode) =>
-            updateScheme((current) => ({ ...current, mode: mode === "custom" ? "custom" : "preset" }))
-          }
-          applyPreset={applyPreset}
-          resetCustomFromPreset={resetCustomFromPreset}
-          updateCustomColor={updateCustomColor}
-        />
+        <SettingsScanProgressCard scanState={scanState} />
 
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={startRescan}
-            disabled={scanState.running || rescanning}
-            className="rounded-xl border border-[color:var(--border)] px-4 py-2 text-sm text-textSoft transition hover:border-accent/40 hover:text-text disabled:opacity-60"
-          >
-            {scanState.running || rescanning ? "Scanning..." : "Rescan Library"}
-          </button>
-          <span className="text-xs text-textSoft">
-            {saving ? "Saving..." : "Auto-save enabled"}
-          </span>
-        </div>
+        <SettingsLibraryStatsCards stats={stats} />
 
-        {message && <p className="text-sm text-emerald-300">{message}</p>}
-        {error && <p className="text-sm text-rose-300">{error}</p>}
-      </div>
-
-      <SettingsScanProgressCard scanState={scanState} />
-
-      <SettingsLibraryStatsCards stats={stats} />
-
-      {settings?.port && (
-        <p className="text-xs text-textSoft">
-          Current API port: <span className="text-text">{settings.port}</span>
-        </p>
-      )}
-    </section>
+        {settings?.port && (
+          <p className="text-xs text-textSoft">
+            Current API port: <span className="text-text">{settings.port}</span>
+          </p>
+        )}
+      </section>
+      {insecureHttpWarningModal}
+    </>
   );
 }
