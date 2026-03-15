@@ -135,6 +135,19 @@ const {
   removeSongFromPlaylistTx,
   sortPlaylistTx
 } = createPlaylistRepo(db);
+const playlistMetaStmt = db.prepare(
+  `SELECT
+    p.id,
+    p.name,
+    COUNT(ps.song_id) AS songCount,
+    CASE WHEN p.cover_art IS NOT NULL THEN 1 ELSE 0 END AS hasCustomArt,
+    MIN(CASE WHEN s.cover_art IS NOT NULL THEN s.id END) AS fallbackArtSongId
+  FROM playlists p
+  LEFT JOIN playlist_songs ps ON ps.playlist_id = p.id
+  LEFT JOIN songs s ON s.id = ps.song_id
+  WHERE p.id = ?
+  GROUP BY p.id`
+);
 
 const songForLyricsStmt = db.prepare(
   `SELECT
@@ -869,6 +882,129 @@ async function getPublicSettingsPayloadPrisma() {
 function sendJson(res, payload) {
   res.setHeader("Cache-Control", "no-store");
   return res.json(payload);
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function getRequestOrigin(req) {
+  const forwardedProto = String(req.headers["x-forwarded-proto"] || "")
+    .split(",")[0]
+    .trim()
+    .toLowerCase();
+  const protocol = forwardedProto || (req.secure ? "https" : "http");
+  const forwardedHost = String(req.headers["x-forwarded-host"] || "")
+    .split(",")[0]
+    .trim();
+  const host = forwardedHost || String(req.headers.host || "").trim();
+  if (!host) {
+    return `${protocol}://localhost:${config.port}`;
+  }
+  return `${protocol}://${host}`;
+}
+
+function cleanMetaTagsFromHtml(html) {
+  return html.replace(
+    /<meta\s+(?:name|property)=["'](?:description|og:[^"']+|twitter:[^"']+)["'][^>]*>\s*/gi,
+    ""
+  );
+}
+
+function buildMetaTags(meta) {
+  const title = escapeHtml(meta.title || "Melodia");
+  const description = escapeHtml(meta.description || "Self-hosted music player");
+  const url = escapeHtml(meta.url || "");
+  const image = escapeHtml(meta.image || "");
+  const imageAlt = escapeHtml(meta.imageAlt || "Melodia");
+  const siteName = escapeHtml(meta.siteName || "Melodia");
+
+  const lines = [
+    `<meta name="description" content="${description}" />`,
+    `<meta property="og:type" content="website" />`,
+    `<meta property="og:site_name" content="${siteName}" />`,
+    `<meta property="og:title" content="${title}" />`,
+    `<meta property="og:description" content="${description}" />`,
+    `<meta property="og:url" content="${url}" />`,
+    `<meta property="twitter:card" content="summary_large_image" />`,
+    `<meta property="twitter:title" content="${title}" />`,
+    `<meta property="twitter:description" content="${description}" />`
+  ];
+
+  if (image) {
+    lines.push(`<meta property="og:image" content="${image}" />`);
+    lines.push(`<meta property="og:image:alt" content="${imageAlt}" />`);
+    lines.push(`<meta property="twitter:image" content="${image}" />`);
+  }
+
+  return lines.map((line) => `    ${line}`).join("\n");
+}
+
+function injectMetadataIntoHtml(htmlTemplate, meta) {
+  if (typeof htmlTemplate !== "string" || !htmlTemplate.trim()) {
+    return htmlTemplate;
+  }
+
+  const safeTitle = escapeHtml(meta.title || "Melodia");
+  const base = cleanMetaTagsFromHtml(htmlTemplate).replace(
+    /<title>[\s\S]*?<\/title>/i,
+    `<title>${safeTitle}</title>`
+  );
+
+  return base.replace("</head>", `${buildMetaTags(meta)}\n  </head>`);
+}
+
+function buildDefaultPageMeta(req) {
+  const appName = String(getSetting(db, "app_name") || config.appName || "Melodia");
+  const origin = getRequestOrigin(req);
+  const url = new URL(req.originalUrl || req.url || "/", origin).toString();
+
+  return {
+    title: `${appName} • Self-hosted player`,
+    description: "Self-hosted music player with playlists, stats, and live playback.",
+    url,
+    image: `${origin}/favicon.svg`,
+    imageAlt: `${appName} cover art`,
+    siteName: appName
+  };
+}
+
+function buildPlaylistPageMeta(req, playlistId) {
+  const appName = String(getSetting(db, "app_name") || config.appName || "Melodia");
+  const origin = getRequestOrigin(req);
+  const url = new URL(req.originalUrl || req.url || `/playlists/${playlistId}`, origin).toString();
+  const playlist = playlistMetaStmt.get(playlistId);
+
+  if (!playlist) {
+    return {
+      title: `Playlist Not Found • ${appName}`,
+      description: "This playlist could not be found.",
+      url,
+      image: `${origin}/favicon.svg`,
+      imageAlt: `${appName} cover art`,
+      siteName: appName
+    };
+  }
+
+  const songCount = Number(playlist.songCount || 0);
+  const hasArt = Boolean(playlist.hasCustomArt) || Number(playlist.fallbackArtSongId || 0) > 0;
+
+  return {
+    title: `${playlist.name} • Playlist on ${appName}`,
+    description:
+      songCount === 1
+        ? "1 song playlist on Melodia."
+        : `${songCount} songs playlist on Melodia.`,
+    url,
+    image: hasArt ? `${origin}/api/playlists/${playlistId}/art` : `${origin}/favicon.svg`,
+    imageAlt: `${playlist.name} playlist cover`,
+    siteName: appName
+  };
 }
 
 app.use(cors());
@@ -2241,10 +2377,21 @@ app.use("/api", (req, res) => {
 
 const clientDist = path.join(config.workspaceRoot, "client", "dist");
 if (fs.existsSync(clientDist)) {
-  app.use(express.static(clientDist));
+  const indexPath = path.join(clientDist, "index.html");
+  const indexTemplate = fs.existsSync(indexPath)
+    ? fs.readFileSync(indexPath, "utf8")
+    : "";
+
+  app.use(express.static(clientDist, { index: false }));
 
   app.get("*", (req, res) => {
-    res.sendFile(path.join(clientDist, "index.html"));
+    const playlistMatch = /^\/playlists\/(\d+)\/?$/.exec(req.path || "");
+    const meta = playlistMatch
+      ? buildPlaylistPageMeta(req, Number.parseInt(playlistMatch[1], 10))
+      : buildDefaultPageMeta(req);
+
+    const html = injectMetadataIntoHtml(indexTemplate, meta);
+    res.status(200).type("html").send(html);
   });
 }
 
