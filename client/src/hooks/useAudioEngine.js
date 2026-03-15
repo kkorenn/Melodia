@@ -191,20 +191,6 @@ export function useAudioEngine() {
       syncAudioState();
     };
 
-    const onPlay = (event) => {
-      if (event.currentTarget !== activeAudioRef.current) {
-        return;
-      }
-      usePlayerStore.getState().setIsPlaying(true);
-    };
-
-    const onPause = (event) => {
-      if (event.currentTarget !== activeAudioRef.current) {
-        return;
-      }
-      usePlayerStore.getState().setIsPlaying(false);
-    };
-
     const onEnded = (event) => {
       if (event.currentTarget !== activeAudioRef.current) {
         return;
@@ -224,8 +210,6 @@ export function useAudioEngine() {
       audio.addEventListener("timeupdate", onTimeUpdate);
       audio.addEventListener("loadedmetadata", onLoadedMetadata);
       audio.addEventListener("progress", onProgress);
-      audio.addEventListener("play", onPlay);
-      audio.addEventListener("pause", onPause);
       audio.addEventListener("ended", onEnded);
       audio.addEventListener("error", onError);
     }
@@ -238,8 +222,6 @@ export function useAudioEngine() {
         audio.removeEventListener("timeupdate", onTimeUpdate);
         audio.removeEventListener("loadedmetadata", onLoadedMetadata);
         audio.removeEventListener("progress", onProgress);
-        audio.removeEventListener("play", onPlay);
-        audio.removeEventListener("pause", onPause);
         audio.removeEventListener("ended", onEnded);
         audio.removeEventListener("error", onError);
       }
