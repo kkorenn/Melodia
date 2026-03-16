@@ -443,7 +443,7 @@ export function StatisticsPage() {
         <HorizontalBarChart
           rows={topArtistsByTotalPlays}
           title="Top Artists (All-Time Total Plays)"
-          subtitle="Ranked by song play_count totals"
+          subtitle="Ranked by song play count totals"
         />
         <HorizontalBarChart
           rows={topArtistsRecent30d}
