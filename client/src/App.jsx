@@ -21,16 +21,19 @@ import { StatisticsPage } from "./pages/StatisticsPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { useAudioEngine } from "./hooks/useAudioEngine";
 import { useScanEvents } from "./hooks/useScanEvents";
-import { fetchPublicSettings, fetchStats } from "./lib/api";
+import { artUrl, fetchPublicSettings, fetchStats } from "./lib/api";
 import { applyColorScheme } from "./lib/colorScheme";
 import { useAppStore } from "./store/appStore";
+import { usePlayerStore } from "./store/playerStore";
 
 export default function App() {
   const { currentSong, currentTime, duration, buffered, seek, next } = useAudioEngine();
   useScanEvents();
+  const isPlaying = usePlayerStore((state) => state.isPlaying);
 
-  const { theme, colorScheme, setPublicSettings, setStats } = useAppStore(
+  const { appName, theme, colorScheme, setPublicSettings, setStats } = useAppStore(
     useShallow((state) => ({
+      appName: state.appName,
       theme: state.theme,
       colorScheme: state.colorScheme,
       setPublicSettings: state.setPublicSettings,
@@ -61,6 +64,65 @@ export default function App() {
     }
     applyColorScheme(theme, colorScheme);
   }, [theme, colorScheme]);
+
+  useEffect(() => {
+    const safeAppName = (appName || "Melodia").trim() || "Melodia";
+    if (!currentSong) {
+      document.title = safeAppName;
+      return;
+    }
+
+    const songTitle = (currentSong.title || currentSong.filename || "Unknown Track").trim();
+    const artist = (currentSong.artist || "").trim();
+    document.title = artist
+      ? `${songTitle} - ${artist} | ${safeAppName}`
+      : `${songTitle} | ${safeAppName}`;
+  }, [appName, currentSong?.id, currentSong?.title, currentSong?.filename, currentSong?.artist]);
+
+  useEffect(() => {
+    if (typeof navigator === "undefined" || !("mediaSession" in navigator)) {
+      return;
+    }
+
+    const mediaSession = navigator.mediaSession;
+    if (!currentSong) {
+      mediaSession.metadata = null;
+      mediaSession.playbackState = "none";
+      return;
+    }
+
+    const songTitle = (currentSong.title || currentSong.filename || "Unknown Track").trim();
+    const artist = (currentSong.artist || "Unknown Artist").trim();
+    const album = (currentSong.album || "Unknown Album").trim();
+    const artworkSource = currentSong.id
+      ? new URL(artUrl(currentSong.id), window.location.origin).toString()
+      : new URL("/favicon.svg", window.location.origin).toString();
+
+    if (typeof window.MediaMetadata === "function") {
+      mediaSession.metadata = new window.MediaMetadata({
+        title: songTitle,
+        artist,
+        album,
+        artwork: [
+          { src: artworkSource, sizes: "96x96", type: "image/jpeg" },
+          { src: artworkSource, sizes: "128x128", type: "image/jpeg" },
+          { src: artworkSource, sizes: "192x192", type: "image/jpeg" },
+          { src: artworkSource, sizes: "256x256", type: "image/jpeg" },
+          { src: artworkSource, sizes: "384x384", type: "image/jpeg" },
+          { src: artworkSource, sizes: "512x512", type: "image/jpeg" }
+        ]
+      });
+    }
+
+    mediaSession.playbackState = isPlaying ? "playing" : "paused";
+  }, [
+    currentSong?.id,
+    currentSong?.title,
+    currentSong?.filename,
+    currentSong?.artist,
+    currentSong?.album,
+    isPlaying
+  ]);
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden">
