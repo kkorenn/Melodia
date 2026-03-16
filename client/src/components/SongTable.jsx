@@ -32,6 +32,7 @@ export function SongTable({
 }) {
   const [contextMenu, setContextMenu] = useState(null);
   const desktopScrollRef = useRef(null);
+  const mobileScrollRef = useRef(null);
 
   useEffect(() => {
     const close = () => setContextMenu(null);
@@ -76,16 +77,31 @@ export function SongTable({
       ? rowVirtualizer.getTotalSize() - virtualRows[virtualRows.length - 1].end
       : 0;
 
+  const mobileRowVirtualizer = useVirtualizer({
+    count: songs.length,
+    getScrollElement: () => mobileScrollRef.current,
+    estimateSize: () => 126,
+    overscan: 10
+  });
+  const mobileVirtualRows = mobileRowVirtualizer.getVirtualItems();
+
   useEffect(() => {
-    if (!hasMore || loadingMore || !onLoadMore || !virtualRows.length) {
+    const desktopLastIndex = virtualRows.length
+      ? virtualRows[virtualRows.length - 1].index
+      : -1;
+    const mobileLastIndex = mobileVirtualRows.length
+      ? mobileVirtualRows[mobileVirtualRows.length - 1].index
+      : -1;
+    const lastVisibleIndex = Math.max(desktopLastIndex, mobileLastIndex);
+
+    if (!hasMore || loadingMore || !onLoadMore || lastVisibleIndex < 0) {
       return;
     }
 
-    const lastVirtualRow = virtualRows[virtualRows.length - 1];
-    if (lastVirtualRow.index >= songs.length - 8) {
+    if (lastVisibleIndex >= songs.length - 8) {
       onLoadMore();
     }
-  }, [hasMore, loadingMore, onLoadMore, songs.length, virtualRows]);
+  }, [hasMore, loadingMore, mobileVirtualRows, onLoadMore, songs.length, virtualRows]);
 
   if (!songs.length) {
     return (
@@ -97,105 +113,123 @@ export function SongTable({
 
   return (
     <div className="relative">
-      <div className="space-y-2 md:hidden">
-        {songs.map((song, index) => {
-          const isCurrent = currentSongId === song.id;
-          return (
-            <article
-              key={song.id}
-              className={clsx(
-                "rounded-xl border p-2.5 transition",
-                playOnRowClick &&
-                  "cursor-pointer hover:border-accent/40 hover:bg-panelSoft/80 active:scale-[0.995]",
-                isCurrent
-                  ? "border-accent/35 bg-accent/10"
-                  : "border-[color:var(--border)] bg-panel"
-              )}
-              onClick={(event) => {
-                if (canTriggerRowPlay(event)) {
-                  onPlaySong?.(song, index, songs);
-                }
-              }}
-            >
-              <div className="flex items-center gap-2.5">
-                <button
-                  type="button"
-                  onClick={() => onPlaySong?.(song, index, songs)}
-                  className="shrink-0"
-                >
-                  <CoverArt songId={song.id} className="h-12 w-12" />
-                </button>
+      <div className="md:hidden">
+        <div
+          ref={mobileScrollRef}
+          className="max-h-[68vh] overflow-y-auto"
+          style={{ contain: "strict" }}
+        >
+          <div
+            className="relative"
+            style={{ height: mobileRowVirtualizer.getTotalSize() }}
+          >
+            {mobileVirtualRows.map((virtualRow) => {
+              const song = songs[virtualRow.index];
+              if (!song) {
+                return null;
+              }
 
-                <div className="min-w-0 flex-1">
-                  <button
-                    type="button"
-                    onClick={() => onPlaySong?.(song, index, songs)}
-                    className="block w-full truncate text-left text-sm font-semibold text-text"
-                  >
-                    {song.title || song.filename}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onGoToArtist?.(song.artist || "Unknown Artist")}
-                    className="block truncate text-left text-xs text-textSoft"
-                  >
-                    {song.artist || "Unknown Artist"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      onGoToAlbum?.(
-                        song.album || "Unknown Album",
-                        song.albumArtist || song.artist || "Unknown Artist"
-                      )
+              const index = virtualRow.index;
+              const isCurrent = currentSongId === song.id;
+              return (
+                <article
+                  key={`${song.id}-${index}`}
+                  className={clsx(
+                    "absolute left-0 top-0 w-full rounded-xl border p-2.5 transition",
+                    playOnRowClick &&
+                      "cursor-pointer hover:border-accent/40 hover:bg-panelSoft/80 active:scale-[0.995]",
+                    isCurrent
+                      ? "border-accent/35 bg-accent/10"
+                      : "border-[color:var(--border)] bg-panel"
+                  )}
+                  style={{ transform: `translateY(${virtualRow.start}px)` }}
+                  onClick={(event) => {
+                    if (canTriggerRowPlay(event)) {
+                      onPlaySong?.(song, index, songs);
                     }
-                    className="block truncate text-left text-xs text-textSoft/90"
-                  >
-                    {song.album || "Unknown Album"}
-                  </button>
-                </div>
-
-                <span className="shrink-0 text-xs tabular-nums text-textSoft">
-                  {formatDuration(song.duration)}
-                </span>
-              </div>
-
-              <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                {playOnRowClick && (
-                  <span className="mr-1 text-[11px] text-textSoft/80">Tap row to play</span>
-                )}
-                {!playOnRowClick && (
-                  <Button
-                    type="button"
-                    size="sm"
-                    onClick={() => onPlaySong?.(song, index, songs)}
-                    className="h-7"
-                  >
-                    Play
-                  </Button>
-                )}
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() => onAddToQueue?.(song, "next")}
-                  className="h-7"
+                  }}
                 >
-                  Next
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() => onAddToQueue?.(song, "end")}
-                  className="h-7"
-                >
-                  Queue
-                </Button>
-              </div>
-            </article>
-          );
-        })}
+                  <div className="flex items-center gap-2.5">
+                    <button
+                      type="button"
+                      onClick={() => onPlaySong?.(song, index, songs)}
+                      className="shrink-0"
+                    >
+                      <CoverArt songId={song.id} className="h-12 w-12" />
+                    </button>
+
+                    <div className="min-w-0 flex-1">
+                      <button
+                        type="button"
+                        onClick={() => onPlaySong?.(song, index, songs)}
+                        className="block w-full truncate text-left text-sm font-semibold text-text"
+                      >
+                        {song.title || song.filename}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onGoToArtist?.(song.artist || "Unknown Artist")}
+                        className="block truncate text-left text-xs text-textSoft"
+                      >
+                        {song.artist || "Unknown Artist"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          onGoToAlbum?.(
+                            song.album || "Unknown Album",
+                            song.albumArtist || song.artist || "Unknown Artist"
+                          )
+                        }
+                        className="block truncate text-left text-xs text-textSoft/90"
+                      >
+                        {song.album || "Unknown Album"}
+                      </button>
+                    </div>
+
+                    <span className="shrink-0 text-xs tabular-nums text-textSoft">
+                      {formatDuration(song.duration)}
+                    </span>
+                  </div>
+
+                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                    {playOnRowClick && (
+                      <span className="mr-1 text-[11px] text-textSoft/80">Tap row to play</span>
+                    )}
+                    {!playOnRowClick && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => onPlaySong?.(song, index, songs)}
+                        className="h-7"
+                      >
+                        Play
+                      </Button>
+                    )}
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => onAddToQueue?.(song, "next")}
+                      className="h-7"
+                    >
+                      Next
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => onAddToQueue?.(song, "end")}
+                      className="h-7"
+                    >
+                      Queue
+                    </Button>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        </div>
 
         {hasMore && (
           <Button

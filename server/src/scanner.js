@@ -1,5 +1,6 @@
 const fs = require("fs/promises");
 const path = require("path");
+const sharp = require("sharp");
 
 const SUPPORTED_EXTENSIONS = new Set([
   ".mp3",
@@ -11,6 +12,9 @@ const SUPPORTED_EXTENSIONS = new Set([
 ]);
 const SCAN_PROGRESS_EMIT_INTERVAL_MS = 150;
 const SCAN_CONCURRENCY = 4;
+const SCAN_BATCH_SIZE = 300;
+const COVER_THUMBNAIL_SIZE = 320;
+const COVER_THUMBNAIL_QUALITY = 78;
 
 let parseFileFn = null;
 
@@ -103,8 +107,7 @@ function createScanner({ db, getMusicDir, broadcast }) {
     });
   }
 
-  async function walkDirectory(rootDir) {
-    const files = [];
+  async function* walkDirectory(rootDir) {
     const stack = [rootDir];
 
     while (stack.length > 0) {
@@ -132,13 +135,50 @@ function createScanner({ db, getMusicDir, broadcast }) {
 
         const extension = path.extname(entry.name).toLowerCase();
         if (SUPPORTED_EXTENSIONS.has(extension)) {
-          files.push(fullPath);
+          yield fullPath;
         }
       }
     }
+  }
 
-    files.sort((a, b) => a.localeCompare(b));
-    return files;
+  async function toThumbnailCover(picture) {
+    if (!picture?.data) {
+      return {
+        coverArt: null,
+        coverArtMime: null
+      };
+    }
+
+    try {
+      const thumbnail = await sharp(picture.data, { failOnError: false })
+        .rotate()
+        .resize(COVER_THUMBNAIL_SIZE, COVER_THUMBNAIL_SIZE, {
+          fit: "inside",
+          withoutEnlargement: true
+        })
+        .jpeg({
+          quality: COVER_THUMBNAIL_QUALITY,
+          mozjpeg: true
+        })
+        .toBuffer();
+
+      if (!thumbnail.length) {
+        return {
+          coverArt: null,
+          coverArtMime: null
+        };
+      }
+
+      return {
+        coverArt: thumbnail,
+        coverArtMime: "image/jpeg"
+      };
+    } catch {
+      return {
+        coverArt: null,
+        coverArtMime: null
+      };
+    }
   }
 
   async function parseMetadata(filePath, stat, existingRow) {
@@ -165,6 +205,8 @@ function createScanner({ db, getMusicDir, broadcast }) {
       ? Number(existingRow.date_added)
       : Math.round(stat.birthtimeMs || stat.ctimeMs || stat.mtimeMs);
 
+    const { coverArt, coverArtMime } = await toThumbnailCover(picture);
+
     return {
       path: filePath,
       filename: path.basename(filePath),
@@ -176,8 +218,8 @@ function createScanner({ db, getMusicDir, broadcast }) {
       track_number: common.track?.no ?? null,
       duration: Number.isFinite(format.duration) ? format.duration : null,
       bitrate: Number.isFinite(format.bitrate) ? Math.round(format.bitrate) : null,
-      cover_art: picture?.data || null,
-      cover_art_mime: picture?.format || null,
+      cover_art: coverArt,
+      cover_art_mime: coverArtMime,
       file_size: stat.size,
       last_modified: Math.round(stat.mtimeMs),
       date_added: dateAdded,
@@ -216,9 +258,8 @@ function createScanner({ db, getMusicDir, broadcast }) {
     );
 
     const seenPaths = new Set();
-    const files = await walkDirectory(musicDir);
 
-    state.total = files.length;
+    state.total = 0;
     broadcast("scan-state", snapshot());
 
     let lastProgressEmitAt = 0;
@@ -231,13 +272,99 @@ function createScanner({ db, getMusicDir, broadcast }) {
       }
     };
 
-    let nextFileIndex = 0;
+    let doneDiscovering = false;
+    const pendingFiles = [];
+    const waitingResolvers = [];
+
+    const upsertSongBatchTx = db.transaction((rows) => {
+      for (const row of rows) {
+        upsertSongStmt.run(row);
+      }
+    });
+
+    const deleteBatchTx = db.transaction((paths) => {
+      for (const knownPath of paths) {
+        deleteByPathStmt.run(knownPath);
+      }
+    });
+
+    const updateProgress = () => {
+      if (!state.total) {
+        state.progress = doneDiscovering ? 100 : 0;
+        return;
+      }
+
+      const computed = Math.round((state.scanned / state.total) * 100);
+      state.progress = doneDiscovering ? computed : Math.min(99, computed);
+    };
+
+    const takeNextFile = () => {
+      if (pendingFiles.length > 0) {
+        return Promise.resolve(pendingFiles.shift());
+      }
+
+      if (doneDiscovering) {
+        return Promise.resolve(null);
+      }
+
+      return new Promise((resolve) => {
+        waitingResolvers.push(resolve);
+      });
+    };
+
+    const enqueueFile = (filePath) => {
+      state.total += 1;
+      updateProgress();
+      emitProgress(false);
+
+      if (waitingResolvers.length > 0) {
+        const resolve = waitingResolvers.shift();
+        resolve(filePath);
+        return;
+      }
+
+      pendingFiles.push(filePath);
+    };
+
+    const discoveryPromise = (async () => {
+      for await (const filePath of walkDirectory(musicDir)) {
+        enqueueFile(filePath);
+      }
+      doneDiscovering = true;
+      for (const resolve of waitingResolvers.splice(0)) {
+        resolve(null);
+      }
+    })();
 
     async function processNextFile() {
-      while (nextFileIndex < files.length) {
-        const index = nextFileIndex;
-        nextFileIndex += 1;
-        const filePath = files[index];
+      const pendingUpserts = [];
+
+      const flushUpserts = () => {
+        if (!pendingUpserts.length) {
+          return;
+        }
+
+        const rows = pendingUpserts.splice(0, pendingUpserts.length);
+        try {
+          upsertSongBatchTx(rows);
+        } catch (error) {
+          pushError("batch-upsert", error);
+          for (const row of rows) {
+            try {
+              upsertSongStmt.run(row);
+            } catch (rowError) {
+              pushError(row.path, rowError);
+            }
+          }
+        }
+      };
+
+      while (true) {
+        const filePath = await takeNextFile();
+        if (!filePath) {
+          break;
+        }
+
         state.currentFile = filePath;
         seenPaths.add(filePath);
 
@@ -254,7 +381,12 @@ function createScanner({ db, getMusicDir, broadcast }) {
             state.skipped += 1;
           } else {
             const parsed = await parseMetadata(filePath, stat, existing);
-            upsertSongStmt.run(parsed);
+            pendingUpserts.push(parsed);
+
+            if (pendingUpserts.length >= SCAN_BATCH_SIZE) {
+              flushUpserts();
+            }
+
             if (existing) {
               state.updated += 1;
             } else {
@@ -266,29 +398,45 @@ function createScanner({ db, getMusicDir, broadcast }) {
         }
 
         state.scanned += 1;
-        state.progress = state.total
-          ? Math.round((state.scanned / state.total) * 100)
-          : 100;
+        updateProgress();
 
         emitProgress(false);
       }
+
+      flushUpserts();
     }
 
-    const workerCount = Math.max(1, Math.min(SCAN_CONCURRENCY, files.length));
+    const workerCount = Math.max(1, SCAN_CONCURRENCY);
     const workers = [];
 
     for (let index = 0; index < workerCount; index += 1) {
       workers.push(processNextFile());
     }
 
-    await Promise.all(workers);
+    await Promise.all([discoveryPromise, ...workers]);
 
     emitProgress(true);
 
+    const removedPaths = [];
     for (const knownPath of existingByPath.keys()) {
       if (!seenPaths.has(knownPath)) {
-        deleteByPathStmt.run(knownPath);
+        removedPaths.push(knownPath);
         state.removed += 1;
+      }
+    }
+
+    if (removedPaths.length > 0) {
+      try {
+        deleteBatchTx(removedPaths);
+      } catch (error) {
+        pushError("batch-delete", error);
+        for (const knownPath of removedPaths) {
+          try {
+            deleteByPathStmt.run(knownPath);
+          } catch (deleteError) {
+            pushError(knownPath, deleteError);
+          }
+        }
       }
     }
 

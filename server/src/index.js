@@ -32,6 +32,7 @@ const LRCLIB_SEARCH_URL = "https://lrclib.net/api/search";
 const LRCLIB_USER_AGENT = "Melodia-Lyrics/1.0 (+https://github.com)";
 const LYRICS_CACHE_TTL_MS = config.lyricsCacheTtlHours * 60 * 60 * 1000;
 const LYRICS_ERROR_CACHE_TTL_MS = 5 * 60 * 1000;
+const STATISTICS_CACHE_TTL_MS = 30 * 1000;
 
 const LYRICS_STATUS = {
   OK: "ok",
@@ -118,14 +119,109 @@ const scanner = createScanner({
   broadcast: (event, payload) => sseHub.broadcast(event, payload)
 });
 
+const incrementSongPlayStmt = db.prepare(
+  "UPDATE songs SET play_count = play_count + 1, last_played = ? WHERE id = ?"
+);
+const insertPlayHistoryStmt = db.prepare(
+  "INSERT INTO play_history (song_id, played_at) VALUES (?, ?)"
+);
+const statsOverviewStmt = db.prepare(
+  `SELECT
+    COUNT(*) AS totalSongs,
+    COUNT(DISTINCT ${ARTIST_EXPR}) AS totalArtists,
+    COUNT(DISTINCT ${ALBUM_TITLE_EXPR} || '||' || ${ALBUM_ARTIST_EXPR}) AS totalAlbums,
+    COALESCE(SUM(duration), 0) AS totalDuration
+  FROM songs`
+);
+const statisticsOverviewStmt = db.prepare(
+  `SELECT
+    COUNT(*) AS totalSongs,
+    COUNT(DISTINCT ${ARTIST_EXPR}) AS totalArtists,
+    COUNT(DISTINCT ${ALBUM_TITLE_EXPR} || '||' || ${ALBUM_ARTIST_EXPR}) AS totalAlbums,
+    COALESCE(SUM(duration), 0) AS totalDuration,
+    COALESCE(SUM(play_count), 0) AS totalPlays,
+    SUM(CASE WHEN COALESCE(play_count, 0) > 0 THEN 1 ELSE 0 END) AS playedSongs,
+    SUM(CASE WHEN COALESCE(play_count, 0) = 0 THEN 1 ELSE 0 END) AS unplayedSongs,
+    COALESCE(AVG(NULLIF(duration, 0)), 0) AS avgTrackDuration
+  FROM songs`
+);
+const statisticsActiveArtists30dStmt = db.prepare(
+  `SELECT COUNT(*) AS count
+   FROM (
+     SELECT 1
+     FROM songs
+     WHERE COALESCE(last_played, 0) >= ?
+     GROUP BY ${ARTIST_EXPR}
+   )`
+);
+const statisticsPlays24hStmt = db.prepare(
+  "SELECT COUNT(*) AS count FROM play_history WHERE played_at >= ?"
+);
+const statisticsPlaysByDayStmt = db.prepare(
+  `SELECT
+    strftime('%Y-%m-%d', played_at / 1000, 'unixepoch', 'localtime') AS day,
+    COUNT(*) AS plays
+  FROM play_history
+  WHERE played_at >= ?
+  GROUP BY day
+  ORDER BY day ASC`
+);
+const statisticsPlaysByHourStmt = db.prepare(
+  `SELECT
+    CAST(strftime('%H', played_at / 1000, 'unixepoch', 'localtime') AS INTEGER) AS hour,
+    COUNT(*) AS plays
+  FROM play_history
+  WHERE played_at >= ?
+  GROUP BY hour
+  ORDER BY hour ASC`
+);
+const statisticsTopArtistsByTotalPlaysStmt = db.prepare(
+  `SELECT
+    ${ARTIST_EXPR} AS artist,
+    SUM(COALESCE(play_count, 0)) AS plays
+  FROM songs
+  GROUP BY ${ARTIST_EXPR}
+  HAVING plays > 0
+  ORDER BY plays DESC, artist COLLATE NOCASE ASC
+  LIMIT 12`
+);
+const statisticsTopArtistsRecent30dStmt = db.prepare(
+  `SELECT
+    ${ARTIST_EXPR} AS artist,
+    COUNT(*) AS plays
+  FROM play_history ph
+  INNER JOIN songs s ON s.id = ph.song_id
+  WHERE ph.played_at >= ?
+  GROUP BY ${ARTIST_EXPR}
+  ORDER BY plays DESC, artist COLLATE NOCASE ASC
+  LIMIT 12`
+);
+const songsCountStmt = db.prepare("SELECT COUNT(*) AS count FROM songs");
+const mostPlayedSongsStmt = db.prepare(
+  `SELECT ${SONG_COLUMNS}
+   FROM songs
+   WHERE play_count > 0
+   ORDER BY play_count DESC, COALESCE(last_played, 0) DESC
+   LIMIT ?`
+);
+const artistsRowsStmt = db.prepare(
+  `SELECT
+    ${ARTIST_EXPR} AS artist,
+    COUNT(*) AS songCount,
+    COUNT(DISTINCT ${ALBUM_TITLE_EXPR} || '::' || ${ALBUM_ARTIST_EXPR}) AS albumCount,
+    SUM(COALESCE(play_count, 0)) AS totalPlays,
+    MAX(last_played) AS lastPlayed,
+    MIN(id) AS artSongId
+  FROM songs
+  GROUP BY ${ARTIST_EXPR}
+  ORDER BY artist COLLATE NOCASE ASC`
+);
+const songExistsByIdStmt = db.prepare("SELECT 1 FROM songs WHERE id = ? LIMIT 1");
+
 const markPlayedTx = db.transaction((songId, playedAt) => {
-  db.prepare(
-    "UPDATE songs SET play_count = play_count + 1, last_played = ? WHERE id = ?"
-  ).run(playedAt, songId);
-  db.prepare("INSERT INTO play_history (song_id, played_at) VALUES (?, ?)").run(
-    songId,
-    playedAt
-  );
+  incrementSongPlayStmt.run(playedAt, songId);
+  insertPlayHistoryStmt.run(songId, playedAt);
+  invalidateStatisticsCache();
 });
 
 const {
@@ -870,6 +966,28 @@ function getPublicSettingsPayload() {
   };
 }
 
+const statisticsCache = {
+  expiresAt: 0,
+  payload: null
+};
+
+function invalidateStatisticsCache() {
+  statisticsCache.expiresAt = 0;
+  statisticsCache.payload = null;
+}
+
+function getStatisticsCacheEntry(now) {
+  if (!statisticsCache.payload || statisticsCache.expiresAt <= now) {
+    return null;
+  }
+  return statisticsCache.payload;
+}
+
+function setStatisticsCacheEntry(payload, now) {
+  statisticsCache.payload = payload;
+  statisticsCache.expiresAt = now + STATISTICS_CACHE_TTL_MS;
+}
+
 function sendJson(res, payload) {
   res.setHeader("Cache-Control", "no-store");
   return res.json(payload);
@@ -1237,9 +1355,14 @@ app.post("/api/rescan", requireSettingsAuth, (req, res) => {
     });
   }
 
-  scanner.runScan().catch((error) => {
-    console.error("Library scan failed:", error);
-  });
+  scanner
+    .runScan()
+    .then(() => {
+      invalidateStatisticsCache();
+    })
+    .catch((error) => {
+      console.error("Library scan failed:", error);
+    });
 
   return sendJson(res, {
     started: true,
@@ -1248,16 +1371,7 @@ app.post("/api/rescan", requireSettingsAuth, (req, res) => {
 });
 
 app.get("/api/stats", (req, res) => {
-  const row = db
-    .prepare(
-      `SELECT
-        COUNT(*) AS totalSongs,
-        COUNT(DISTINCT ${ARTIST_EXPR}) AS totalArtists,
-        COUNT(DISTINCT ${ALBUM_TITLE_EXPR} || '||' || ${ALBUM_ARTIST_EXPR}) AS totalAlbums,
-        COALESCE(SUM(duration), 0) AS totalDuration
-      FROM songs`
-    )
-    .get();
+  const row = statsOverviewStmt.get();
 
   sendJson(res, {
     totalSongs: row.totalSongs,
@@ -1269,93 +1383,30 @@ app.get("/api/stats", (req, res) => {
 
 app.get("/api/statistics", (req, res) => {
   const now = Date.now();
+  const cached = getStatisticsCacheEntry(now);
+  if (cached) {
+    return sendJson(res, cached);
+  }
+
   const dayMs = 24 * 60 * 60 * 1000;
   const since30d = now - 30 * dayMs;
   const since24h = now - dayMs;
 
-  const overview = db
-    .prepare(
-      `SELECT
-        COUNT(*) AS totalSongs,
-        COUNT(DISTINCT ${ARTIST_EXPR}) AS totalArtists,
-        COUNT(DISTINCT ${ALBUM_TITLE_EXPR} || '||' || ${ALBUM_ARTIST_EXPR}) AS totalAlbums,
-        COALESCE(SUM(duration), 0) AS totalDuration,
-        COALESCE(SUM(play_count), 0) AS totalPlays,
-        SUM(CASE WHEN COALESCE(play_count, 0) > 0 THEN 1 ELSE 0 END) AS playedSongs,
-        SUM(CASE WHEN COALESCE(play_count, 0) = 0 THEN 1 ELSE 0 END) AS unplayedSongs,
-        COALESCE(AVG(NULLIF(duration, 0)), 0) AS avgTrackDuration
-      FROM songs`
-    )
-    .get();
+  const overview = statisticsOverviewStmt.get();
 
-  const activeArtists30d = db
-    .prepare(
-      `SELECT COUNT(*) AS count
-       FROM (
-         SELECT 1
-         FROM songs
-         WHERE COALESCE(last_played, 0) >= ?
-         GROUP BY ${ARTIST_EXPR}
-       )`
-    )
-    .get(since30d).count;
+  const activeArtists30d = statisticsActiveArtists30dStmt.get(since30d).count;
 
-  const plays24h = db
-    .prepare("SELECT COUNT(*) AS count FROM play_history WHERE played_at >= ?")
-    .get(since24h).count;
+  const plays24h = statisticsPlays24hStmt.get(since24h).count;
 
-  const playsByDay = db
-    .prepare(
-      `SELECT
-        strftime('%Y-%m-%d', played_at / 1000, 'unixepoch', 'localtime') AS day,
-        COUNT(*) AS plays
-      FROM play_history
-      WHERE played_at >= ?
-      GROUP BY day
-      ORDER BY day ASC`
-    )
-    .all(since30d);
+  const playsByDay = statisticsPlaysByDayStmt.all(since30d);
 
-  const playsByHour = db
-    .prepare(
-      `SELECT
-        CAST(strftime('%H', played_at / 1000, 'unixepoch', 'localtime') AS INTEGER) AS hour,
-        COUNT(*) AS plays
-      FROM play_history
-      WHERE played_at >= ?
-      GROUP BY hour
-      ORDER BY hour ASC`
-    )
-    .all(since30d);
+  const playsByHour = statisticsPlaysByHourStmt.all(since30d);
 
-  const topArtistsByTotalPlays = db
-    .prepare(
-      `SELECT
-        ${ARTIST_EXPR} AS artist,
-        SUM(COALESCE(play_count, 0)) AS plays
-      FROM songs
-      GROUP BY ${ARTIST_EXPR}
-      HAVING plays > 0
-      ORDER BY plays DESC, artist COLLATE NOCASE ASC
-      LIMIT 12`
-    )
-    .all();
+  const topArtistsByTotalPlays = statisticsTopArtistsByTotalPlaysStmt.all();
 
-  const topArtistsRecent30d = db
-    .prepare(
-      `SELECT
-        ${ARTIST_EXPR} AS artist,
-        COUNT(*) AS plays
-      FROM play_history ph
-      INNER JOIN songs s ON s.id = ph.song_id
-      WHERE ph.played_at >= ?
-      GROUP BY ${ARTIST_EXPR}
-      ORDER BY plays DESC, artist COLLATE NOCASE ASC
-      LIMIT 12`
-    )
-    .all(since30d);
+  const topArtistsRecent30d = statisticsTopArtistsRecent30dStmt.all(since30d);
 
-  sendJson(res, {
+  const payload = {
     generatedAt: now,
     overview: {
       ...overview,
@@ -1368,7 +1419,10 @@ app.get("/api/statistics", (req, res) => {
       topArtistsByTotalPlays,
       topArtistsRecent30d
     }
-  });
+  };
+
+  setStatisticsCacheEntry(payload, now);
+  return sendJson(res, payload);
 });
 
 app.get("/api/songs", (req, res) => {
@@ -1385,7 +1439,7 @@ app.get("/api/songs", (req, res) => {
     )
     .all(limit, offset);
 
-  const total = db.prepare("SELECT COUNT(*) AS count FROM songs").get().count;
+  const total = songsCountStmt.get().count;
 
   sendJson(res, {
     rows,
@@ -1437,15 +1491,7 @@ app.get("/api/views/recently-played", (req, res) => {
 app.get("/api/views/most-played", (req, res) => {
   const limit = parseIntParam(req.query.limit, 200, 1, 500);
 
-  const rows = db
-    .prepare(
-      `SELECT ${SONG_COLUMNS}
-       FROM songs
-       WHERE play_count > 0
-       ORDER BY play_count DESC, COALESCE(last_played, 0) DESC
-       LIMIT ?`
-    )
-    .all(limit);
+  const rows = mostPlayedSongsStmt.all(limit);
 
   sendJson(res, { rows });
 });
@@ -1535,20 +1581,7 @@ app.get("/api/views/active-artists", (req, res) => {
 });
 
 app.get("/api/artists", (req, res) => {
-  const rows = db
-    .prepare(
-      `SELECT
-        ${ARTIST_EXPR} AS artist,
-        COUNT(*) AS songCount,
-        COUNT(DISTINCT ${ALBUM_TITLE_EXPR} || '::' || ${ALBUM_ARTIST_EXPR}) AS albumCount,
-        SUM(COALESCE(play_count, 0)) AS totalPlays,
-        MAX(last_played) AS lastPlayed,
-        MIN(id) AS artSongId
-      FROM songs
-      GROUP BY ${ARTIST_EXPR}
-      ORDER BY artist COLLATE NOCASE ASC`
-    )
-    .all();
+  const rows = artistsRowsStmt.all();
 
   const now = Date.now();
   const activeSince30d = now - 30 * 24 * 60 * 60 * 1000;
@@ -2365,7 +2398,7 @@ app.post("/api/play/:songId", (req, res) => {
     return res.status(400).json({ error: "Invalid song id" });
   }
 
-  const exists = db.prepare("SELECT 1 FROM songs WHERE id = ? LIMIT 1").get(songId);
+  const exists = songExistsByIdStmt.get(songId);
   if (!exists) {
     return res.status(404).json({ error: "Song not found" });
   }
@@ -2420,9 +2453,14 @@ app.listen(port, () => {
   }
 });
 
-const songCount = db.prepare("SELECT COUNT(*) AS count FROM songs").get().count;
+const songCount = songsCountStmt.get().count;
 if (songCount === 0) {
-  scanner.runScan().catch((error) => {
-    console.error("Initial library scan failed:", error);
-  });
+  scanner
+    .runScan()
+    .then(() => {
+      invalidateStatisticsCache();
+    })
+    .catch((error) => {
+      console.error("Initial library scan failed:", error);
+    });
 }

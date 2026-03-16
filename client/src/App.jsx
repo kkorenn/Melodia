@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { useShallow } from "zustand/react/shallow";
 import { Sidebar } from "./components/Sidebar";
@@ -7,18 +7,6 @@ import { TopBar } from "./components/TopBar";
 import { PlayerBar } from "./components/PlayerBar";
 import { QueueSidebar } from "./components/QueueSidebar";
 import { LibraryPage } from "./pages/LibraryPage";
-import { PlaylistsPage } from "./pages/PlaylistsPage";
-import { PlaylistDetailPage } from "./pages/PlaylistDetailPage";
-import { ArtistsPage } from "./pages/ArtistsPage";
-import { ArtistDetailPage } from "./pages/ArtistDetailPage";
-import { AlbumsPage } from "./pages/AlbumsPage";
-import { AlbumDetailPage } from "./pages/AlbumDetailPage";
-import { MostPlayedPage } from "./pages/MostPlayedPage";
-import { RecentlyPlayedPage } from "./pages/RecentlyPlayedPage";
-import { RediscoverPage } from "./pages/RediscoverPage";
-import { ActiveArtistsPage } from "./pages/ActiveArtistsPage";
-import { StatisticsPage } from "./pages/StatisticsPage";
-import { SettingsPage } from "./pages/SettingsPage";
 import { useAudioEngine } from "./hooks/useAudioEngine";
 import { useScanEvents } from "./hooks/useScanEvents";
 import { artUrl, fetchPublicSettings, fetchStats } from "./lib/api";
@@ -26,6 +14,67 @@ import { applyColorScheme } from "./lib/colorScheme";
 import { MainScrollProvider } from "./lib/mainScroll.jsx";
 import { useAppStore } from "./store/appStore";
 import { usePlayerStore } from "./store/playerStore";
+
+const PlaylistsPage = lazy(() =>
+  import("./pages/PlaylistsPage").then((module) => ({
+    default: module.PlaylistsPage
+  }))
+);
+const PlaylistDetailPage = lazy(() =>
+  import("./pages/PlaylistDetailPage").then((module) => ({
+    default: module.PlaylistDetailPage
+  }))
+);
+const ArtistsPage = lazy(() =>
+  import("./pages/ArtistsPage").then((module) => ({
+    default: module.ArtistsPage
+  }))
+);
+const ArtistDetailPage = lazy(() =>
+  import("./pages/ArtistDetailPage").then((module) => ({
+    default: module.ArtistDetailPage
+  }))
+);
+const AlbumsPage = lazy(() =>
+  import("./pages/AlbumsPage").then((module) => ({
+    default: module.AlbumsPage
+  }))
+);
+const AlbumDetailPage = lazy(() =>
+  import("./pages/AlbumDetailPage").then((module) => ({
+    default: module.AlbumDetailPage
+  }))
+);
+const MostPlayedPage = lazy(() =>
+  import("./pages/MostPlayedPage").then((module) => ({
+    default: module.MostPlayedPage
+  }))
+);
+const RecentlyPlayedPage = lazy(() =>
+  import("./pages/RecentlyPlayedPage").then((module) => ({
+    default: module.RecentlyPlayedPage
+  }))
+);
+const RediscoverPage = lazy(() =>
+  import("./pages/RediscoverPage").then((module) => ({
+    default: module.RediscoverPage
+  }))
+);
+const ActiveArtistsPage = lazy(() =>
+  import("./pages/ActiveArtistsPage").then((module) => ({
+    default: module.ActiveArtistsPage
+  }))
+);
+const StatisticsPage = lazy(() =>
+  import("./pages/StatisticsPage").then((module) => ({
+    default: module.StatisticsPage
+  }))
+);
+const SettingsPage = lazy(() =>
+  import("./pages/SettingsPage").then((module) => ({
+    default: module.SettingsPage
+  }))
+);
 
 export default function App() {
   const [mainScrollElement, setMainScrollElement] = useState(null);
@@ -142,18 +191,102 @@ export default function App() {
               >
                 <Routes>
                   <Route path="/" element={<LibraryPage />} />
-                  <Route path="/playlists" element={<PlaylistsPage />} />
-                  <Route path="/playlists/:playlistId" element={<PlaylistDetailPage />} />
-                  <Route path="/artists" element={<ArtistsPage />} />
-                  <Route path="/artists/:artist" element={<ArtistDetailPage />} />
-                  <Route path="/albums" element={<AlbumsPage />} />
-                  <Route path="/albums/:albumArtist/:album" element={<AlbumDetailPage />} />
-                  <Route path="/rediscover" element={<RediscoverPage />} />
-                  <Route path="/active-artists" element={<ActiveArtistsPage />} />
-                  <Route path="/statistics" element={<StatisticsPage />} />
-                  <Route path="/most-played" element={<MostPlayedPage />} />
-                  <Route path="/recently-played" element={<RecentlyPlayedPage />} />
-                  <Route path="/settings" element={<SettingsPage />} />
+                  <Route
+                    path="/playlists"
+                    element={
+                      <Suspense fallback={<p className="text-sm text-textSoft">Loading page...</p>}>
+                        <PlaylistsPage />
+                      </Suspense>
+                    }
+                  />
+                  <Route
+                    path="/playlists/:playlistId"
+                    element={
+                      <Suspense fallback={<p className="text-sm text-textSoft">Loading page...</p>}>
+                        <PlaylistDetailPage />
+                      </Suspense>
+                    }
+                  />
+                  <Route
+                    path="/artists"
+                    element={
+                      <Suspense fallback={<p className="text-sm text-textSoft">Loading page...</p>}>
+                        <ArtistsPage />
+                      </Suspense>
+                    }
+                  />
+                  <Route
+                    path="/artists/:artist"
+                    element={
+                      <Suspense fallback={<p className="text-sm text-textSoft">Loading page...</p>}>
+                        <ArtistDetailPage />
+                      </Suspense>
+                    }
+                  />
+                  <Route
+                    path="/albums"
+                    element={
+                      <Suspense fallback={<p className="text-sm text-textSoft">Loading page...</p>}>
+                        <AlbumsPage />
+                      </Suspense>
+                    }
+                  />
+                  <Route
+                    path="/albums/:albumArtist/:album"
+                    element={
+                      <Suspense fallback={<p className="text-sm text-textSoft">Loading page...</p>}>
+                        <AlbumDetailPage />
+                      </Suspense>
+                    }
+                  />
+                  <Route
+                    path="/rediscover"
+                    element={
+                      <Suspense fallback={<p className="text-sm text-textSoft">Loading page...</p>}>
+                        <RediscoverPage />
+                      </Suspense>
+                    }
+                  />
+                  <Route
+                    path="/active-artists"
+                    element={
+                      <Suspense fallback={<p className="text-sm text-textSoft">Loading page...</p>}>
+                        <ActiveArtistsPage />
+                      </Suspense>
+                    }
+                  />
+                  <Route
+                    path="/statistics"
+                    element={
+                      <Suspense fallback={<p className="text-sm text-textSoft">Loading page...</p>}>
+                        <StatisticsPage />
+                      </Suspense>
+                    }
+                  />
+                  <Route
+                    path="/most-played"
+                    element={
+                      <Suspense fallback={<p className="text-sm text-textSoft">Loading page...</p>}>
+                        <MostPlayedPage />
+                      </Suspense>
+                    }
+                  />
+                  <Route
+                    path="/recently-played"
+                    element={
+                      <Suspense fallback={<p className="text-sm text-textSoft">Loading page...</p>}>
+                        <RecentlyPlayedPage />
+                      </Suspense>
+                    }
+                  />
+                  <Route
+                    path="/settings"
+                    element={
+                      <Suspense fallback={<p className="text-sm text-textSoft">Loading page...</p>}>
+                        <SettingsPage />
+                      </Suspense>
+                    }
+                  />
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
               </main>

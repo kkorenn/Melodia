@@ -8,6 +8,7 @@ import {
   X
 } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import {
   addSongToPlaylist,
   clearPlaylistCover,
@@ -135,6 +136,8 @@ export function PlaylistDetailPage() {
   const [sortBy, setSortBy] = useState("position");
   const [sortDirection, setSortDirection] = useState("asc");
   const songItemRefs = useRef(new Map());
+  const playlistSongsScrollRef = useRef(null);
+  const libraryCandidatesScrollRef = useRef(null);
   const previousTopBySongIdRef = useRef(new Map());
   const hasMeasuredSongPositionsRef = useRef(false);
 
@@ -152,6 +155,22 @@ export function PlaylistDetailPage() {
     () => songs.map((song) => song.id).join(","),
     [songs]
   );
+  const playlistSongsVirtualizer = useVirtualizer({
+    count: songs.length,
+    getScrollElement: () => playlistSongsScrollRef.current,
+    estimateSize: () => 66,
+    overscan: 10
+  });
+  const playlistSongsVirtualRows = playlistSongsVirtualizer.getVirtualItems();
+  const usePlaylistVirtualRows = false;
+  const libraryCandidatesVirtualizer = useVirtualizer({
+    count: libraryCandidates.length,
+    getScrollElement: () => libraryCandidatesScrollRef.current,
+    estimateSize: () => 62,
+    overscan: 12
+  });
+  const libraryCandidateVirtualRows = libraryCandidatesVirtualizer.getVirtualItems();
+  const useLibraryCandidateVirtualRows = false;
 
   const handlePlaylistWriteError = (err, fallbackMessage) => {
     if (isSettingsAuthRequiredError(err)) {
@@ -577,106 +596,231 @@ export function PlaylistDetailPage() {
           </p>
         )}
 
-        <div className="space-y-1">
-          {songs.map((song, index) => (
+        <div
+          ref={playlistSongsScrollRef}
+          className={`${canEditPlaylist ? "max-h-[460px]" : "max-h-[68vh] min-h-[52vh]"} overflow-y-auto`}
+        >
+          {usePlaylistVirtualRows ? (
             <div
-              key={song.id}
-              ref={(node) => {
-                if (node) {
-                  songItemRefs.current.set(song.id, node);
-                } else {
-                  songItemRefs.current.delete(song.id);
+              className="relative"
+              style={{ height: playlistSongsVirtualizer.getTotalSize() }}
+            >
+              {playlistSongsVirtualRows.map((virtualRow) => {
+                const song = songs[virtualRow.index];
+                if (!song) {
+                  return null;
                 }
-              }}
-              className={`flex items-center gap-3 rounded-xl border px-3 py-2 transition ${
-                currentSongId === song.id
-                  ? "border-accent/40 bg-accent/10"
-                  : "border-[color:var(--border)] bg-panelSoft/40 hover:bg-panelSoft/70"
-              }`}
-            >
-              <button
-                type="button"
-                onClick={() => playSong(song, index, songs)}
-                className="w-8 text-left text-xs text-textSoft"
-              >
-                {index + 1}
-              </button>
-              <CoverArt songId={song.id} className="h-10 w-10" />
-              <button
-                type="button"
-                onClick={() => playSong(song, index, songs)}
-                className="min-w-0 flex-1 text-left"
-              >
-                <p className="truncate text-sm font-medium text-text">{song.title || song.filename}</p>
-                <p className="truncate text-xs text-textSoft">{song.artist || "Unknown Artist"}</p>
-              </button>
-              {canEditPlaylist && (
-                <button
-                  type="button"
-                  onClick={() => removeSong(song.id)}
-                  disabled={updatingSongs}
-                  className="inline-flex items-center gap-1 rounded-lg border border-[color:var(--border)] px-2 py-1 text-xs text-textSoft transition hover:border-accent/40 hover:text-text disabled:opacity-60"
-                >
-                  <X className="h-3.5 w-3.5" strokeWidth={2.2} aria-hidden="true" />
-                  <span>Remove</span>
-                </button>
-              )}
+
+                const index = virtualRow.index;
+                return (
+                  <div
+                    key={`${song.id}-${index}`}
+                    ref={(node) => {
+                      if (node) {
+                        songItemRefs.current.set(song.id, node);
+                      } else {
+                        songItemRefs.current.delete(song.id);
+                      }
+                    }}
+                    className={`absolute left-0 top-0 flex w-full items-center gap-3 rounded-xl border px-3 py-2 transition ${
+                      currentSongId === song.id
+                        ? "border-accent/40 bg-accent/10"
+                        : "border-[color:var(--border)] bg-panelSoft/40 hover:bg-panelSoft/70"
+                    }`}
+                    style={{ transform: `translateY(${virtualRow.start}px)` }}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => playSong(song, index, songs)}
+                      className="w-8 text-left text-xs text-textSoft"
+                    >
+                      {index + 1}
+                    </button>
+                    <CoverArt songId={song.id} className="h-10 w-10" />
+                    <button
+                      type="button"
+                      onClick={() => playSong(song, index, songs)}
+                      className="min-w-0 flex-1 text-left"
+                    >
+                      <p className="truncate text-sm font-medium text-text">
+                        {song.title || song.filename}
+                      </p>
+                      <p className="truncate text-xs text-textSoft">{song.artist || "Unknown Artist"}</p>
+                    </button>
+                    {canEditPlaylist && (
+                      <button
+                        type="button"
+                        onClick={() => removeSong(song.id)}
+                        disabled={updatingSongs}
+                        className="inline-flex items-center gap-1 rounded-lg border border-[color:var(--border)] px-2 py-1 text-xs text-textSoft transition hover:border-accent/40 hover:text-text disabled:opacity-60"
+                      >
+                        <X className="h-3.5 w-3.5" strokeWidth={2.2} aria-hidden="true" />
+                        <span>Remove</span>
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
             </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="space-y-3 rounded-2xl border border-[color:var(--border)] bg-panel/70 p-4">
-        <div className="flex flex-wrap items-end justify-between gap-2">
-          <h3 className="text-sm uppercase tracking-[0.14em] text-textSoft">Add Songs</h3>
-          <Input
-            value={searchInput}
-            onChange={(event) => setSearchInput(event.target.value)}
-            placeholder="Search songs by title, artist, album"
-            className="h-10 w-full rounded-xl md:w-80"
-          />
-        </div>
-
-        <div className="max-h-[360px] space-y-1 overflow-y-auto pr-1">
-          {libraryCandidates.map((song) => (
-            <div
-              key={song.id}
-              className="flex items-center gap-3 rounded-xl border border-[color:var(--border)] bg-panelSoft/40 px-3 py-2"
-            >
-              <CoverArt songId={song.id} className="h-9 w-9" />
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium text-text">{song.title || song.filename}</p>
-                <p className="truncate text-xs text-textSoft">
-                  {song.artist || "Unknown Artist"} · {song.album || "Unknown Album"}
-                </p>
-              </div>
-
-              {songIdsInPlaylist.has(song.id) ? (
-                <span className="inline-flex items-center gap-1 rounded-lg border border-emerald-400/40 bg-emerald-500/10 px-2 py-1 text-xs text-emerald-300">
-                  <Check className="h-3.5 w-3.5" strokeWidth={2.2} aria-hidden="true" />
-                  Added
-                </span>
-              ) : canEditPlaylist ? (
-                <button
-                  type="button"
-                  onClick={() => addSong(song.id)}
-                  disabled={updatingSongs}
-                  className="inline-flex items-center gap-1 rounded-lg border border-[color:var(--border)] px-2 py-1 text-xs text-textSoft transition hover:border-accent/40 hover:text-text disabled:opacity-60"
+          ) : (
+            <div className="space-y-1">
+              {songs.map((song, index) => (
+                <div
+                  key={`${song.id}-${index}`}
+                  ref={(node) => {
+                    if (node) {
+                      songItemRefs.current.set(song.id, node);
+                    } else {
+                      songItemRefs.current.delete(song.id);
+                    }
+                  }}
+                  className={`flex w-full items-center gap-3 rounded-xl border px-3 py-2 transition ${
+                    currentSongId === song.id
+                      ? "border-accent/40 bg-accent/10"
+                      : "border-[color:var(--border)] bg-panelSoft/40 hover:bg-panelSoft/70"
+                  }`}
                 >
-                  <Plus className="h-3.5 w-3.5" strokeWidth={2.2} aria-hidden="true" />
-                  Add
-                </button>
-              ) : null}
+                  <button
+                    type="button"
+                    onClick={() => playSong(song, index, songs)}
+                    className="w-8 text-left text-xs text-textSoft"
+                  >
+                    {index + 1}
+                  </button>
+                  <CoverArt songId={song.id} className="h-10 w-10" />
+                  <button
+                    type="button"
+                    onClick={() => playSong(song, index, songs)}
+                    className="min-w-0 flex-1 text-left"
+                  >
+                    <p className="truncate text-sm font-medium text-text">{song.title || song.filename}</p>
+                    <p className="truncate text-xs text-textSoft">{song.artist || "Unknown Artist"}</p>
+                  </button>
+                  {canEditPlaylist && (
+                    <button
+                      type="button"
+                      onClick={() => removeSong(song.id)}
+                      disabled={updatingSongs}
+                      className="inline-flex items-center gap-1 rounded-lg border border-[color:var(--border)] px-2 py-1 text-xs text-textSoft transition hover:border-accent/40 hover:text-text disabled:opacity-60"
+                    >
+                      <X className="h-3.5 w-3.5" strokeWidth={2.2} aria-hidden="true" />
+                      <span>Remove</span>
+                    </button>
+                  )}
+                </div>
+              ))}
             </div>
-          ))}
-
-          {!libraryCandidates.length && (
-            <p className="rounded-xl border border-[color:var(--border)] bg-panelSoft/40 p-4 text-sm text-textSoft">
-              No songs found for that search.
-            </p>
           )}
         </div>
       </section>
+
+      {canEditPlaylist && (
+        <section className="space-y-3 rounded-2xl border border-[color:var(--border)] bg-panel/70 p-4">
+          <div className="flex flex-wrap items-end justify-between gap-2">
+            <h3 className="text-sm uppercase tracking-[0.14em] text-textSoft">Add Songs</h3>
+            <Input
+              value={searchInput}
+              onChange={(event) => setSearchInput(event.target.value)}
+              placeholder="Search songs by title, artist, album"
+              className="h-10 w-full rounded-xl md:w-80"
+            />
+          </div>
+
+          <div
+            ref={libraryCandidatesScrollRef}
+            className="max-h-[360px] overflow-y-auto pr-1"
+          >
+            {useLibraryCandidateVirtualRows ? (
+              <div
+                className="relative"
+                style={{ height: libraryCandidatesVirtualizer.getTotalSize() }}
+              >
+                {libraryCandidateVirtualRows.map((virtualRow) => {
+                  const song = libraryCandidates[virtualRow.index];
+                  if (!song) {
+                    return null;
+                  }
+
+                  return (
+                    <div
+                      key={`${song.id}-${virtualRow.index}`}
+                      className="absolute left-0 top-0 flex w-full items-center gap-3 rounded-xl border border-[color:var(--border)] bg-panelSoft/40 px-3 py-2"
+                      style={{ transform: `translateY(${virtualRow.start}px)` }}
+                    >
+                      <CoverArt songId={song.id} className="h-9 w-9" />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-text">
+                          {song.title || song.filename}
+                        </p>
+                        <p className="truncate text-xs text-textSoft">
+                          {song.artist || "Unknown Artist"} · {song.album || "Unknown Album"}
+                        </p>
+                      </div>
+
+                      {songIdsInPlaylist.has(song.id) ? (
+                        <span className="inline-flex items-center gap-1 rounded-lg border border-emerald-400/40 bg-emerald-500/10 px-2 py-1 text-xs text-emerald-300">
+                          <Check className="h-3.5 w-3.5" strokeWidth={2.2} aria-hidden="true" />
+                          Added
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => addSong(song.id)}
+                          disabled={updatingSongs}
+                          className="inline-flex items-center gap-1 rounded-lg border border-[color:var(--border)] px-2 py-1 text-xs text-textSoft transition hover:border-accent/40 hover:text-text disabled:opacity-60"
+                        >
+                          <Plus className="h-3.5 w-3.5" strokeWidth={2.2} aria-hidden="true" />
+                          Add
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="space-y-1">
+                {libraryCandidates.map((song, index) => (
+                  <div
+                    key={`${song.id}-${index}`}
+                    className="flex w-full items-center gap-3 rounded-xl border border-[color:var(--border)] bg-panelSoft/40 px-3 py-2"
+                  >
+                    <CoverArt songId={song.id} className="h-9 w-9" />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-text">{song.title || song.filename}</p>
+                      <p className="truncate text-xs text-textSoft">
+                        {song.artist || "Unknown Artist"} · {song.album || "Unknown Album"}
+                      </p>
+                    </div>
+
+                    {songIdsInPlaylist.has(song.id) ? (
+                      <span className="inline-flex items-center gap-1 rounded-lg border border-emerald-400/40 bg-emerald-500/10 px-2 py-1 text-xs text-emerald-300">
+                        <Check className="h-3.5 w-3.5" strokeWidth={2.2} aria-hidden="true" />
+                        Added
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => addSong(song.id)}
+                        disabled={updatingSongs}
+                        className="inline-flex items-center gap-1 rounded-lg border border-[color:var(--border)] px-2 py-1 text-xs text-textSoft transition hover:border-accent/40 hover:text-text disabled:opacity-60"
+                      >
+                        <Plus className="h-3.5 w-3.5" strokeWidth={2.2} aria-hidden="true" />
+                        Add
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {!libraryCandidates.length && (
+              <p className="rounded-xl border border-[color:var(--border)] bg-panelSoft/40 p-4 text-sm text-textSoft">
+                No songs found for that search.
+              </p>
+            )}
+          </div>
+        </section>
+      )}
     </section>
   );
 }

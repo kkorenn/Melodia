@@ -256,6 +256,48 @@ function getPreviousResult(state) {
   };
 }
 
+function sanitizePersistedSong(song) {
+  if (!song || typeof song !== "object") {
+    return null;
+  }
+
+  const id = Number(song.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    return null;
+  }
+
+  return {
+    id,
+    title: typeof song.title === "string" ? song.title : null,
+    filename: typeof song.filename === "string" ? song.filename : "",
+    artist: typeof song.artist === "string" ? song.artist : null,
+    album: typeof song.album === "string" ? song.album : null,
+    albumArtist: typeof song.albumArtist === "string" ? song.albumArtist : null,
+    duration: Number.isFinite(song.duration) ? song.duration : null,
+    hasArt: Number(song.hasArt) ? 1 : 0
+  };
+}
+
+function sanitizePersistedQueue(queue) {
+  if (!Array.isArray(queue)) {
+    return [];
+  }
+
+  const compacted = [];
+  for (const song of queue) {
+    const safeSong = sanitizePersistedSong(song);
+    if (safeSong) {
+      compacted.push(safeSong);
+    }
+  }
+
+  return compacted;
+}
+
+function compactSongForStorage(song) {
+  return sanitizePersistedSong(song);
+}
+
 export const usePlayerStore = create(
   persist(
     (set) => ({
@@ -524,13 +566,42 @@ export const usePlayerStore = create(
     {
       name: "melodia-player",
       storage: createJSONStorage(() => localStorage),
-      merge: (persistedState, currentState) => ({
-        ...currentState,
-        ...(persistedState || {}),
-        queueOpen: false
-      }),
+      merge: (persistedState, currentState) => {
+        const persistedQueue = sanitizePersistedQueue(persistedState?.queue);
+        const queueLength = persistedQueue.length;
+        const persistedIndex = Number.parseInt(persistedState?.currentIndex, 10);
+        const currentIndex =
+          Number.isInteger(persistedIndex) && queueLength > 0
+            ? clamp(persistedIndex, 0, queueLength - 1)
+            : -1;
+        const shuffleOrder = sanitizeShuffleOrder(persistedState?.shuffleOrder, queueLength);
+        const shufflePointer =
+          Number.isInteger(persistedState?.shufflePointer) &&
+          persistedState.shufflePointer >= 0 &&
+          persistedState.shufflePointer < shuffleOrder.length
+            ? persistedState.shufflePointer
+            : -1;
+
+        return {
+          ...currentState,
+          ...(persistedState || {}),
+          queue: persistedQueue,
+          currentIndex,
+          shuffle: Boolean(persistedState?.shuffle),
+          shuffleOrder,
+          shufflePointer,
+          repeatMode:
+            persistedState?.repeatMode === "all" || persistedState?.repeatMode === "one"
+              ? persistedState.repeatMode
+              : "off",
+          volume: clamp(Number(persistedState?.volume) || currentState.volume, 0, 1),
+          muted: Boolean(persistedState?.muted),
+          lastShuffleOrder: sanitizeShuffleOrder(persistedState?.lastShuffleOrder, queueLength),
+          queueOpen: false
+        };
+      },
       partialize: (state) => ({
-        queue: state.queue,
+        queue: state.queue.map(compactSongForStorage).filter(Boolean),
         currentIndex: state.currentIndex,
         shuffle: state.shuffle,
         shuffleOrder: state.shuffleOrder,
