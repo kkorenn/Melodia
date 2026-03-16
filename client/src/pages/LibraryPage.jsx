@@ -130,6 +130,9 @@ export function LibraryPage() {
             onPlaySong={playSong}
             onGoToArtist={goToArtist}
             onGoToAlbum={goToAlbum}
+            onLoadMore={loadMore}
+            hasMore={hasMore}
+            loadingMore={loadingMore}
           />
         )}
       </div>

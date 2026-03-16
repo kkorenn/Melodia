@@ -15,6 +15,76 @@ function createPlaylistRepo(db) {
   );
 
   const songExistsStmt = db.prepare("SELECT id FROM songs WHERE id = ? LIMIT 1");
+  const createPlaylistStmt = db.prepare(
+    "INSERT INTO playlists (name, created_at, updated_at) VALUES (?, ?, ?)"
+  );
+  const renamePlaylistStmt = db.prepare(
+    "UPDATE playlists SET name = ?, updated_at = ? WHERE id = ?"
+  );
+  const deletePlaylistStmt = db.prepare("DELETE FROM playlists WHERE id = ?");
+  const setPlaylistCoverStmt = db.prepare(
+    "UPDATE playlists SET cover_art = ?, cover_art_mime = ?, updated_at = ? WHERE id = ?"
+  );
+  const clearPlaylistCoverStmt = db.prepare(
+    "UPDATE playlists SET cover_art = NULL, cover_art_mime = NULL, updated_at = ? WHERE id = ?"
+  );
+
+  const createPlaylistTx = db.transaction((name) => {
+    const now = Date.now();
+    const result = createPlaylistStmt.run(name, now, now);
+
+    return {
+      id: Number(result.lastInsertRowid),
+      name,
+      createdAt: now,
+      updatedAt: now
+    };
+  });
+
+  const renamePlaylistTx = db.transaction((playlistId, name) => {
+    const updatedAt = Date.now();
+    const result = renamePlaylistStmt.run(name, updatedAt, playlistId);
+    if (!result.changes) {
+      return null;
+    }
+
+    return {
+      id: playlistId,
+      name,
+      updatedAt
+    };
+  });
+
+  const deletePlaylistTx = db.transaction((playlistId) => {
+    const result = deletePlaylistStmt.run(playlistId);
+    return result.changes;
+  });
+
+  const setPlaylistCoverTx = db.transaction((playlistId, coverArt, coverArtMime) => {
+    const updatedAt = Date.now();
+    const result = setPlaylistCoverStmt.run(coverArt, coverArtMime, updatedAt, playlistId);
+    if (!result.changes) {
+      return null;
+    }
+
+    return {
+      id: playlistId,
+      updatedAt
+    };
+  });
+
+  const clearPlaylistCoverTx = db.transaction((playlistId) => {
+    const updatedAt = Date.now();
+    const result = clearPlaylistCoverStmt.run(updatedAt, playlistId);
+    if (!result.changes) {
+      return null;
+    }
+
+    return {
+      id: playlistId,
+      updatedAt
+    };
+  });
 
   const normalizePlaylistPositionsTx = db.transaction((playlistId) => {
     const rows = db
@@ -108,6 +178,11 @@ function createPlaylistRepo(db) {
     playlistSortOptions: PLAYLIST_SORT_OPTIONS,
     playlistExistsStmt,
     songExistsStmt,
+    createPlaylistTx,
+    renamePlaylistTx,
+    deletePlaylistTx,
+    setPlaylistCoverTx,
+    clearPlaylistCoverTx,
     addSongToPlaylistTx,
     removeSongFromPlaylistTx,
     sortPlaylistTx

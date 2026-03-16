@@ -10,6 +10,7 @@ const SUPPORTED_EXTENSIONS = new Set([
   ".aac"
 ]);
 const SCAN_PROGRESS_EMIT_INTERVAL_MS = 150;
+const SCAN_CONCURRENCY = 4;
 
 let parseFileFn = null;
 
@@ -230,42 +231,57 @@ function createScanner({ db, getMusicDir, broadcast }) {
       }
     };
 
-    for (let index = 0; index < files.length; index += 1) {
-      const filePath = files[index];
-      state.currentFile = filePath;
-      seenPaths.add(filePath);
+    let nextFileIndex = 0;
 
-      try {
-        const stat = await fs.stat(filePath);
-        const existing = existingByPath.get(filePath);
-        const lastModified = Math.round(stat.mtimeMs);
+    async function processNextFile() {
+      while (nextFileIndex < files.length) {
+        const index = nextFileIndex;
+        nextFileIndex += 1;
+        const filePath = files[index];
+        state.currentFile = filePath;
+        seenPaths.add(filePath);
 
-        if (
-          existing &&
-          Number(existing.last_modified) === lastModified &&
-          Number(existing.file_size) === stat.size
-        ) {
-          state.skipped += 1;
-        } else {
-          const parsed = await parseMetadata(filePath, stat, existing);
-          upsertSongStmt.run(parsed);
-          if (existing) {
-            state.updated += 1;
+        try {
+          const stat = await fs.stat(filePath);
+          const existing = existingByPath.get(filePath);
+          const lastModified = Math.round(stat.mtimeMs);
+
+          if (
+            existing &&
+            Number(existing.last_modified) === lastModified &&
+            Number(existing.file_size) === stat.size
+          ) {
+            state.skipped += 1;
           } else {
-            state.added += 1;
+            const parsed = await parseMetadata(filePath, stat, existing);
+            upsertSongStmt.run(parsed);
+            if (existing) {
+              state.updated += 1;
+            } else {
+              state.added += 1;
+            }
           }
+        } catch (error) {
+          pushError(filePath, error);
         }
-      } catch (error) {
-        pushError(filePath, error);
+
+        state.scanned += 1;
+        state.progress = state.total
+          ? Math.round((state.scanned / state.total) * 100)
+          : 100;
+
+        emitProgress(false);
       }
-
-      state.scanned = index + 1;
-      state.progress = state.total
-        ? Math.round((state.scanned / state.total) * 100)
-        : 100;
-
-      emitProgress(false);
     }
+
+    const workerCount = Math.max(1, Math.min(SCAN_CONCURRENCY, files.length));
+    const workers = [];
+
+    for (let index = 0; index < workerCount; index += 1) {
+      workers.push(processNextFile());
+    }
+
+    await Promise.all(workers);
 
     emitProgress(true);
 

@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { useShallow } from "zustand/react/shallow";
 import { Sidebar } from "./components/Sidebar";
@@ -23,10 +23,12 @@ import { useAudioEngine } from "./hooks/useAudioEngine";
 import { useScanEvents } from "./hooks/useScanEvents";
 import { artUrl, fetchPublicSettings, fetchStats } from "./lib/api";
 import { applyColorScheme } from "./lib/colorScheme";
+import { MainScrollProvider } from "./lib/mainScroll.jsx";
 import { useAppStore } from "./store/appStore";
 import { usePlayerStore } from "./store/playerStore";
 
 export default function App() {
+  const [mainScrollElement, setMainScrollElement] = useState(null);
   const { currentSong, currentTime, duration, buffered, seek, next } = useAudioEngine();
   useScanEvents();
   const isPlaying = usePlayerStore((state) => state.isPlaying);
@@ -125,45 +127,50 @@ export default function App() {
   ]);
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden">
-      <div className="relative flex min-h-0 flex-1 overflow-hidden">
-        <Sidebar />
+    <MainScrollProvider value={mainScrollElement}>
+      <div className="flex h-full min-h-0 flex-col overflow-hidden">
+        <div className="relative flex min-h-0 flex-1 overflow-hidden">
+          <Sidebar />
 
-        <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
-          <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-            <TopBar />
-            <MobileNav />
-            <main className="app-main-scroll min-h-0 flex-1 overflow-y-auto px-3 pb-4 pt-4 md:px-6">
-              <Routes>
-                <Route path="/" element={<LibraryPage />} />
-                <Route path="/playlists" element={<PlaylistsPage />} />
-                <Route path="/playlists/:playlistId" element={<PlaylistDetailPage />} />
-                <Route path="/artists" element={<ArtistsPage />} />
-                <Route path="/artists/:artist" element={<ArtistDetailPage />} />
-                <Route path="/albums" element={<AlbumsPage />} />
-                <Route path="/albums/:albumArtist/:album" element={<AlbumDetailPage />} />
-                <Route path="/rediscover" element={<RediscoverPage />} />
-                <Route path="/active-artists" element={<ActiveArtistsPage />} />
-                <Route path="/statistics" element={<StatisticsPage />} />
-                <Route path="/most-played" element={<MostPlayedPage />} />
-                <Route path="/recently-played" element={<RecentlyPlayedPage />} />
-                <Route path="/settings" element={<SettingsPage />} />
-                <Route path="*" element={<Navigate to="/" replace />} />
-              </Routes>
-            </main>
+          <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+              <TopBar />
+              <MobileNav />
+              <main
+                ref={setMainScrollElement}
+                className="app-main-scroll min-h-0 flex-1 overflow-y-auto px-3 pb-4 pt-4 md:px-6"
+              >
+                <Routes>
+                  <Route path="/" element={<LibraryPage />} />
+                  <Route path="/playlists" element={<PlaylistsPage />} />
+                  <Route path="/playlists/:playlistId" element={<PlaylistDetailPage />} />
+                  <Route path="/artists" element={<ArtistsPage />} />
+                  <Route path="/artists/:artist" element={<ArtistDetailPage />} />
+                  <Route path="/albums" element={<AlbumsPage />} />
+                  <Route path="/albums/:albumArtist/:album" element={<AlbumDetailPage />} />
+                  <Route path="/rediscover" element={<RediscoverPage />} />
+                  <Route path="/active-artists" element={<ActiveArtistsPage />} />
+                  <Route path="/statistics" element={<StatisticsPage />} />
+                  <Route path="/most-played" element={<MostPlayedPage />} />
+                  <Route path="/recently-played" element={<RecentlyPlayedPage />} />
+                  <Route path="/settings" element={<SettingsPage />} />
+                  <Route path="*" element={<Navigate to="/" replace />} />
+                </Routes>
+              </main>
+            </div>
+            <QueueSidebar />
           </div>
-          <QueueSidebar />
         </div>
-      </div>
 
-      <PlayerBar
-        currentSong={currentSong}
-        currentTime={currentTime}
-        duration={duration}
-        buffered={buffered}
-        seek={seek}
-        next={next}
-      />
-    </div>
+        <PlayerBar
+          currentSong={currentSong}
+          currentTime={currentTime}
+          duration={duration}
+          buffered={buffered}
+          seek={seek}
+          next={next}
+        />
+      </div>
+    </MainScrollProvider>
   );
 }

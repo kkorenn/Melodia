@@ -13,16 +13,16 @@ const { getConfig } = require("./config");
 const {
   initializeDatabase,
   ensureDefaultSettings,
-  getSetting
+  getSetting,
+  getAllSettings,
+  setSetting
 } = require("./db");
-const { getPrisma } = require("./prisma");
 const { createScanner } = require("./scanner");
 const { createSseHub } = require("./sse");
 const { createPlaylistRepo } = require("./playlistRepo");
 
 const config = getConfig();
 const db = initializeDatabase(config.dbPath);
-const prisma = getPrisma(config.dbPath);
 const openBrowser =
   typeof openModule === "function" ? openModule : openModule.default;
 
@@ -132,6 +132,11 @@ const {
   playlistSortOptions: PLAYLIST_SORT_OPTIONS,
   playlistExistsStmt,
   songExistsStmt,
+  createPlaylistTx,
+  renamePlaylistTx,
+  deletePlaylistTx,
+  setPlaylistCoverTx,
+  clearPlaylistCoverTx,
   addSongToPlaylistTx,
   removeSongFromPlaylistTx,
   sortPlaylistTx
@@ -258,7 +263,7 @@ function parseCookies(headerValue) {
 
     try {
       acc[key] = decodeURIComponent(rawValue);
-    } catch (error) {
+    } catch {
       acc[key] = rawValue;
     }
     return acc;
@@ -283,7 +288,7 @@ function parseScryptHash(value) {
   try {
     salt = Buffer.from(parts[4], "base64");
     digest = Buffer.from(parts[5], "base64");
-  } catch (error) {
+  } catch {
     return null;
   }
 
@@ -531,30 +536,6 @@ function parseId(value) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
 
-function isPrismaNotFoundError(error) {
-  return Boolean(error && typeof error === "object" && error.code === "P2025");
-}
-
-function nowMsBigInt() {
-  return BigInt(Date.now());
-}
-
-function numberIfBigInt(value) {
-  return typeof value === "bigint" ? Number(value) : value;
-}
-
-function normalizePlaylistPrismaRow(row) {
-  if (!row || typeof row !== "object") {
-    return row;
-  }
-
-  return {
-    ...row,
-    createdAt: numberIfBigInt(row.createdAt),
-    updatedAt: numberIfBigInt(row.updatedAt)
-  };
-}
-
 function sanitizePlaylistName(value) {
   if (typeof value !== "string") {
     return "";
@@ -580,7 +561,7 @@ function parseDataUrlImage(dataUrl) {
   let buffer;
   try {
     buffer = Buffer.from(match[2], "base64");
-  } catch (error) {
+  } catch {
     return null;
   }
 
@@ -604,7 +585,7 @@ function parseStoredJson(value, fallback) {
     if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
       return parsed;
     }
-  } catch (error) {
+  } catch {
     // no-op
   }
 
@@ -823,7 +804,9 @@ async function fetchLyricsFromLrcLib(song) {
       entries = payload;
     }
   } catch (error) {
-    throw new Error("LRCLIB returned non-JSON response");
+    throw new Error("LRCLIB returned non-JSON response", {
+      cause: error
+    });
   }
 
   const match = pickBestLrcLibEntry(entries, title, artist, album);
@@ -874,22 +857,12 @@ function buildSettingsPayload(settings) {
   };
 }
 
-async function getSettingsPayloadPrisma() {
-  const rows = await prisma.setting.findMany({
-    select: {
-      key: true,
-      value: true
-    }
-  });
-  const settings = rows.reduce((acc, row) => {
-    acc[row.key] = row.value;
-    return acc;
-  }, {});
-  return buildSettingsPayload(settings);
+function getSettingsPayload() {
+  return buildSettingsPayload(getAllSettings(db));
 }
 
-async function getPublicSettingsPayloadPrisma() {
-  const settings = await getSettingsPayloadPrisma();
+function getPublicSettingsPayload() {
+  const settings = getSettingsPayload();
   return {
     theme: settings.theme,
     appName: settings.appName,
@@ -1083,10 +1056,10 @@ app.get("/api/health", (req, res) => {
 
 app.get("/api/settings/public", async (req, res) => {
   try {
-    const payload = await getPublicSettingsPayloadPrisma();
+    const payload = getPublicSettingsPayload();
     sendJson(res, payload);
   } catch (error) {
-    console.error("Could not read public settings via Prisma:", error);
+    console.error("Could not load public settings:", error);
     res.status(500).json({ error: "Could not load public settings" });
   }
 });
@@ -1145,10 +1118,10 @@ app.post("/api/settings/auth/logout", (req, res) => {
 
 app.get("/api/settings", requireSettingsAuth, async (req, res) => {
   try {
-    const payload = await getSettingsPayloadPrisma();
+    const payload = getSettingsPayload();
     sendJson(res, payload);
   } catch (error) {
-    console.error("Could not read settings via Prisma:", error);
+    console.error("Could not load settings:", error);
     res.status(500).json({ error: "Could not load settings" });
   }
 });
@@ -1165,20 +1138,7 @@ app.post("/api/settings", requireSettingsAuth, async (req, res) => {
   const settingWrites = [];
 
   const enqueueSettingWrite = (key, value) => {
-    settingWrites.push(
-      prisma.setting.upsert({
-        where: { key },
-        create: {
-          key,
-          value: String(value ?? ""),
-          updatedAt: nowMsBigInt()
-        },
-        update: {
-          value: String(value ?? ""),
-          updatedAt: nowMsBigInt()
-        }
-      })
-    );
+    settingWrites.push([key, String(value ?? "")]);
   };
 
   if (typeof musicDir === "string" && musicDir.trim()) {
@@ -1190,7 +1150,7 @@ app.post("/api/settings", requireSettingsAuth, async (req, res) => {
           error: "musicDir must be an existing directory"
         });
       }
-    } catch (error) {
+    } catch {
       return res.status(400).json({
         error: "musicDir must be an existing directory"
       });
@@ -1221,7 +1181,7 @@ app.post("/api/settings", requireSettingsAuth, async (req, res) => {
     let serialized;
     try {
       serialized = JSON.stringify(colorScheme);
-    } catch (error) {
+    } catch {
       return res.status(400).json({
         error: "colorScheme must be serializable JSON"
       });
@@ -1238,10 +1198,14 @@ app.post("/api/settings", requireSettingsAuth, async (req, res) => {
 
   try {
     if (settingWrites.length > 0) {
-      await prisma.$transaction(settingWrites);
+      db.transaction((entries) => {
+        for (const [key, value] of entries) {
+          setSetting(db, key, value);
+        }
+      })(settingWrites);
     }
 
-    const nextSettingsPayload = await getSettingsPayloadPrisma();
+    const nextSettingsPayload = getSettingsPayload();
 
     sendJson(res, {
       success: true,
@@ -1250,7 +1214,7 @@ app.post("/api/settings", requireSettingsAuth, async (req, res) => {
         "If port changed, restart the server to apply the new listening port."
     });
   } catch (error) {
-    console.error("Could not write settings via Prisma:", error);
+    console.error("Could not save settings:", error);
     res.status(500).json({ error: "Could not save settings" });
   }
 });
@@ -1738,33 +1702,20 @@ app.get("/api/playlists", (req, res) => {
 
 app.post("/api/playlists", requireSettingsAuth, async (req, res) => {
   const name = sanitizePlaylistName(req.body?.name) || "New Playlist";
-  const now = nowMsBigInt();
   try {
-    const row = await prisma.playlist.create({
-      data: {
-        name,
-        createdAt: now,
-        updatedAt: now
-      },
-      select: {
-        id: true,
-        name: true,
-        createdAt: true,
-        updatedAt: true
-      }
-    });
+    const row = createPlaylistTx(name);
 
     sendJson(res, {
       success: true,
       playlist: {
-        ...normalizePlaylistPrismaRow(row),
+        ...row,
         songCount: 0,
         hasCustomArt: 0,
         fallbackArtSongId: null
       }
     });
   } catch (error) {
-    console.error("Could not create playlist via Prisma:", error);
+    console.error("Could not create playlist:", error);
     res.status(500).json({ error: "Could not create playlist" });
   }
 });
@@ -1811,35 +1762,20 @@ app.patch("/api/playlists/:playlistId", requireSettingsAuth, async (req, res) =>
     return res.status(400).json({ error: "Playlist name is required" });
   }
 
-  const updatedAt = nowMsBigInt();
-  let playlist;
   try {
-    playlist = await prisma.playlist.update({
-      where: { id: playlistId },
-      data: {
-        name,
-        updatedAt
-      },
-      select: {
-        id: true,
-        name: true
-      }
-    });
-  } catch (error) {
-    if (isPrismaNotFoundError(error)) {
+    const playlist = renamePlaylistTx(playlistId, name);
+    if (!playlist) {
       return res.status(404).json({ error: "Playlist not found" });
     }
-    console.error("Could not rename playlist via Prisma:", error);
+
+    sendJson(res, {
+      success: true,
+      playlist
+    });
+  } catch (error) {
+    console.error("Could not rename playlist:", error);
     return res.status(500).json({ error: "Could not rename playlist" });
   }
-
-  sendJson(res, {
-    success: true,
-    playlist: {
-      ...playlist,
-      updatedAt: Number(updatedAt)
-    }
-  });
 });
 
 app.delete("/api/playlists/:playlistId", requireSettingsAuth, async (req, res) => {
@@ -1849,14 +1785,12 @@ app.delete("/api/playlists/:playlistId", requireSettingsAuth, async (req, res) =
   }
 
   try {
-    await prisma.playlist.delete({
-      where: { id: playlistId }
-    });
-  } catch (error) {
-    if (isPrismaNotFoundError(error)) {
+    const changes = deletePlaylistTx(playlistId);
+    if (!changes) {
       return res.status(404).json({ error: "Playlist not found" });
     }
-    console.error("Could not delete playlist via Prisma:", error);
+  } catch (error) {
+    console.error("Could not delete playlist:", error);
     return res.status(500).json({ error: "Could not delete playlist" });
   }
 
@@ -1999,19 +1933,12 @@ app.post("/api/playlists/:playlistId/cover", requireSettingsAuth, async (req, re
   }
 
   try {
-    await prisma.playlist.update({
-      where: { id: playlistId },
-      data: {
-        coverArt: parsed.buffer,
-        coverArtMime: parsed.mimeType,
-        updatedAt: nowMsBigInt()
-      }
-    });
-  } catch (error) {
-    if (isPrismaNotFoundError(error)) {
+    const result = setPlaylistCoverTx(playlistId, parsed.buffer, parsed.mimeType);
+    if (!result) {
       return res.status(404).json({ error: "Playlist not found" });
     }
-    console.error("Could not set playlist cover via Prisma:", error);
+  } catch (error) {
+    console.error("Could not update playlist cover:", error);
     return res.status(500).json({ error: "Could not update playlist cover" });
   }
 
@@ -2024,19 +1951,12 @@ app.delete("/api/playlists/:playlistId/cover", requireSettingsAuth, async (req, 
     return res.status(400).json({ error: "Invalid playlist id" });
   }
   try {
-    await prisma.playlist.update({
-      where: { id: playlistId },
-      data: {
-        coverArt: null,
-        coverArtMime: null,
-        updatedAt: nowMsBigInt()
-      }
-    });
-  } catch (error) {
-    if (isPrismaNotFoundError(error)) {
+    const result = clearPlaylistCoverTx(playlistId);
+    if (!result) {
       return res.status(404).json({ error: "Playlist not found" });
     }
-    console.error("Could not clear playlist cover via Prisma:", error);
+  } catch (error) {
+    console.error("Could not clear playlist cover:", error);
     return res.status(500).json({ error: "Could not clear playlist cover" });
   }
 
@@ -2406,7 +2326,7 @@ app.get("/api/stream/:songId", async (req, res) => {
   let stat;
   try {
     stat = await fsp.stat(song.path);
-  } catch (error) {
+  } catch {
     return res.status(404).json({ error: "Audio file missing on disk" });
   }
 

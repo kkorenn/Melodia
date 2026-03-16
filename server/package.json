@@ -7,12 +7,10 @@
     "dev": "nodemon src/index.js",
     "start": "node src/index.js",
     "build": "echo \"Server uses runtime JavaScript; no build step required.\"",
-    "prisma:generate": "node ./node_modules/prisma/build/index.js generate --schema ./prisma/schema.prisma",
-    "prisma:db:pull": "node ./node_modules/prisma/build/index.js db pull --schema ./prisma/schema.prisma --print",
-    "prisma:db:pull:write": "node ./node_modules/prisma/build/index.js db pull --schema ./prisma/schema.prisma"
+    "lint": "eslint src test",
+    "test": "node --test test/*.test.js"
   },
   "dependencies": {
-    "@prisma/client": "^6.16.2",
     "better-sqlite3": "^11.8.1",
     "compression": "^1.7.5",
     "cors": "^2.8.5",
@@ -21,7 +19,6 @@
     "mime-types": "^2.1.35",
     "music-metadata": "^11.12.2",
     "open": "^10.1.2",
-    "prisma": "^6.16.2",
     "sharp": "^0.34.5"
   },
   "devDependencies": {

@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import clsx from "clsx";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { ChevronDown, ChevronUp, Play } from "lucide-react";
 import { formatDuration } from "../utils/format";
 import { CoverArt } from "./CoverArt";
@@ -42,22 +43,6 @@ export function SongTable({
     };
   }, []);
 
-  useEffect(() => {
-    const node = desktopScrollRef.current;
-    if (!node || !hasMore || loadingMore || !onLoadMore) {
-      return;
-    }
-
-    const onScroll = () => {
-      if (node.scrollTop + node.clientHeight >= node.scrollHeight - 240) {
-        onLoadMore();
-      }
-    };
-
-    node.addEventListener("scroll", onScroll);
-    return () => node.removeEventListener("scroll", onScroll);
-  }, [hasMore, loadingMore, onLoadMore, songs.length]);
-
   const sortLabel = useMemo(() => {
     if (!sort) {
       return "";
@@ -77,6 +62,30 @@ export function SongTable({
 
     return !target.closest("button, a, input, select, textarea, [role='button']");
   }
+
+  const rowVirtualizer = useVirtualizer({
+    count: songs.length,
+    getScrollElement: () => desktopScrollRef.current,
+    estimateSize: () => 57,
+    overscan: 12
+  });
+  const virtualRows = rowVirtualizer.getVirtualItems();
+  const paddingTop = virtualRows.length > 0 ? virtualRows[0].start : 0;
+  const paddingBottom =
+    virtualRows.length > 0
+      ? rowVirtualizer.getTotalSize() - virtualRows[virtualRows.length - 1].end
+      : 0;
+
+  useEffect(() => {
+    if (!hasMore || loadingMore || !onLoadMore || !virtualRows.length) {
+      return;
+    }
+
+    const lastVirtualRow = virtualRows[virtualRows.length - 1];
+    if (lastVirtualRow.index >= songs.length - 8) {
+      onLoadMore();
+    }
+  }, [hasMore, loadingMore, onLoadMore, songs.length, virtualRows]);
 
   if (!songs.length) {
     return (
@@ -242,100 +251,118 @@ export function SongTable({
                 </tr>
               </thead>
               <tbody>
-                {songs.map((song, index) => {
+                {paddingTop > 0 && (
+                  <tr>
+                    <td colSpan={7} style={{ height: paddingTop }} />
+                  </tr>
+                )}
+
+                {virtualRows.map((virtualRow) => {
+                  const song = songs[virtualRow.index];
+                  const index = virtualRow.index;
+                  if (!song) {
+                    return null;
+                  }
                   const isCurrent = currentSongId === song.id;
 
                   return (
-                    <tr
-                      key={`${song.id}-${index}`}
-                      className={clsx(
-                        "group border-b border-[color:var(--border)] align-middle",
-                        isCurrent
-                          ? "bg-accent/15"
-                          : playOnRowClick
-                            ? "cursor-pointer hover:bg-panelSoft/95"
-                            : "hover:bg-panelSoft/80"
-                      )}
-                      onClick={(event) => {
-                        if (canTriggerRowPlay(event)) {
-                          onPlaySong?.(song, index, songs);
-                        }
-                      }}
-                      onDoubleClick={() => onPlaySong?.(song, index, songs)}
-                      onContextMenu={(event) => {
-                        event.preventDefault();
-                        setContextMenu({
-                          x: event.clientX,
-                          y: event.clientY,
-                          song,
-                          index
-                        });
-                      }}
-                    >
-                      <td className="px-3 py-2 text-textSoft">
-                        {playOnRowClick ? (
-                          index + 1
-                        ) : (
-                          <Button
+                    <Fragment key={`${song.id}-${index}`}>
+                      <tr
+                        className={clsx(
+                          "group border-b border-[color:var(--border)] align-middle",
+                          isCurrent
+                            ? "bg-accent/15"
+                            : playOnRowClick
+                              ? "cursor-pointer hover:bg-panelSoft/95"
+                              : "hover:bg-panelSoft/80"
+                        )}
+                        onClick={(event) => {
+                          if (canTriggerRowPlay(event)) {
+                            onPlaySong?.(song, index, songs);
+                          }
+                        }}
+                        onDoubleClick={() => onPlaySong?.(song, index, songs)}
+                        onContextMenu={(event) => {
+                          event.preventDefault();
+                          setContextMenu({
+                            x: event.clientX,
+                            y: event.clientY,
+                            song,
+                            index
+                          });
+                        }}
+                      >
+                        <td className="px-3 py-2 text-textSoft">
+                          {playOnRowClick ? (
+                            index + 1
+                          ) : (
+                            <Button
+                              type="button"
+                              size="icon"
+                              variant="ghost"
+                              className="h-7 w-7 rounded-full border border-accent/30 bg-accent/15 text-text hover:bg-accent/25"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                onPlaySong?.(song, index, songs);
+                              }}
+                            >
+                              <Play
+                                className="h-3.5 w-3.5"
+                                fill="currentColor"
+                                stroke="none"
+                                aria-hidden="true"
+                              />
+                              <span className="sr-only">Play song</span>
+                            </Button>
+                          )}
+                        </td>
+                        <td className="px-3 py-2">
+                          <CoverArt songId={song.id} className="h-10 w-10" />
+                        </td>
+                        <td className="px-3 py-2 font-medium text-text">
+                          <div className="max-w-[440px] truncate">{song.title || song.filename}</div>
+                        </td>
+                        <td className="px-3 py-2">
+                          <button
                             type="button"
-                            size="icon"
-                            variant="ghost"
-                            className="h-7 w-7 rounded-full border border-accent/30 bg-accent/15 text-text hover:bg-accent/25"
                             onClick={(event) => {
                               event.stopPropagation();
-                              onPlaySong?.(song, index, songs);
+                              onGoToArtist?.(song.artist || "Unknown Artist");
                             }}
+                            className="max-w-[260px] truncate text-left text-textSoft transition hover:text-text"
                           >
-                            <Play
-                              className="h-3.5 w-3.5"
-                              fill="currentColor"
-                              stroke="none"
-                              aria-hidden="true"
-                            />
-                            <span className="sr-only">Play song</span>
-                          </Button>
-                        )}
-                      </td>
-                      <td className="px-3 py-2">
-                        <CoverArt songId={song.id} className="h-10 w-10" />
-                      </td>
-                      <td className="px-3 py-2 font-medium text-text">
-                        <div className="max-w-[440px] truncate">{song.title || song.filename}</div>
-                      </td>
-                      <td className="px-3 py-2">
-                        <button
-                          type="button"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            onGoToArtist?.(song.artist || "Unknown Artist");
-                          }}
-                          className="max-w-[260px] truncate text-left text-textSoft transition hover:text-text"
-                        >
-                          {song.artist || "Unknown Artist"}
-                        </button>
-                      </td>
-                      <td className="px-3 py-2">
-                        <button
-                          type="button"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            onGoToAlbum?.(
-                              song.album || "Unknown Album",
-                              song.albumArtist || song.artist || "Unknown Artist"
-                            );
-                          }}
-                          className="max-w-[300px] truncate text-left text-textSoft transition hover:text-text"
-                        >
-                          {song.album || "Unknown Album"}
-                        </button>
-                      </td>
-                      <td className="px-3 py-2 text-right text-textSoft">{song.playCount || 0}</td>
-                      <td className="px-3 py-2 text-right text-textSoft">
-                        {formatDuration(song.duration)}
-                      </td>
-                    </tr>
+                            {song.artist || "Unknown Artist"}
+                          </button>
+                        </td>
+                        <td className="px-3 py-2">
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              onGoToAlbum?.(
+                                song.album || "Unknown Album",
+                                song.albumArtist || song.artist || "Unknown Artist"
+                              );
+                            }}
+                            className="max-w-[300px] truncate text-left text-textSoft transition hover:text-text"
+                          >
+                            {song.album || "Unknown Album"}
+                          </button>
+                        </td>
+                        <td className="px-3 py-2 text-right text-textSoft">{song.playCount || 0}</td>
+                        <td className="px-3 py-2 text-right text-textSoft">
+                          {formatDuration(song.duration)}
+                        </td>
+                      </tr>
+                    </Fragment>
                   );
                 })}
+
+                {paddingBottom > 0 && (
+                  <tr>
+                    <td colSpan={7} style={{ height: paddingBottom }} />
+                  </tr>
+                )}
               </tbody>
             </table>
           </Card>

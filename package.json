@@ -21,9 +21,13 @@
     "scripts:help": "node scripts/cli.js --help",
     "start": "npm run dev",
     "settings:hash": "node scripts/generate-settings-password-hash.js",
-    "prisma:generate": "npm --prefix server run prisma:generate"
+    "lint": "eslint client/src server/src server/test scripts eslint.config.js",
+    "test": "npm --prefix server run test"
   },
   "devDependencies": {
-    "concurrently": "^9.1.2"
+    "@eslint/js": "^10.0.1",
+    "concurrently": "^9.1.2",
+    "eslint": "^10.0.3",
+    "globals": "^17.4.0"
   }
 }

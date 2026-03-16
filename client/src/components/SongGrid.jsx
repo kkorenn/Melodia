@@ -9,83 +9,100 @@ export function SongGrid({
   onPlaySong,
   onGoToArtist,
   onGoToAlbum,
-  gridSize = "large"
+  gridSize = "large",
+  onLoadMore,
+  hasMore = false,
+  loadingMore = false
 }) {
   if (!songs.length) {
     return null;
   }
 
   return (
-    <div
-      className={clsx(
-        "grid",
-        gridSize === "small"
-          ? "grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6"
-          : "grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
-      )}
-    >
-      {songs.map((song, index) => (
-        <Card key={song.id} className="group overflow-hidden transition hover:border-accent/40">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => onPlaySong?.(song, index, songs)}
-            className="h-auto w-full rounded-none p-0"
-          >
-            <CoverArt songId={song.id} frame={false} className="aspect-square w-full" />
-          </Button>
-
-          <CardContent className={clsx("pt-2", gridSize === "small" ? "p-2.5" : "p-3")}>
-            <button
+    <div className="space-y-3">
+      <div
+        className={clsx(
+          "grid",
+          gridSize === "small"
+            ? "grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6"
+            : "grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
+        )}
+      >
+        {songs.map((song, index) => (
+          <Card className="group overflow-hidden transition hover:border-accent/40">
+            <Button
               type="button"
+              variant="ghost"
+              size="sm"
               onClick={() => onPlaySong?.(song, index, songs)}
-              className={clsx(
-                "block w-full truncate bg-transparent p-0 text-left font-semibold text-text transition hover:text-accent focus-visible:outline-none",
-                gridSize === "small" ? "text-xs" : "text-sm"
-              )}
+              className="h-auto w-full rounded-none p-0"
             >
-              {song.title || song.filename}
-            </button>
+              <CoverArt songId={song.id} frame={false} className="aspect-square w-full" />
+            </Button>
 
-            <div className="mt-1 flex items-center gap-2">
+            <CardContent className={clsx("pt-2", gridSize === "small" ? "p-2.5" : "p-3")}>
               <button
                 type="button"
-                onClick={() => onGoToArtist?.(song.artist || "Unknown Artist")}
+                onClick={() => onPlaySong?.(song, index, songs)}
                 className={clsx(
-                  "min-w-0 flex-1 truncate bg-transparent p-0 text-left text-textSoft transition hover:text-text focus-visible:outline-none",
-                  gridSize === "small" ? "text-[11px]" : "text-xs"
+                  "block w-full truncate bg-transparent p-0 text-left font-semibold text-text transition hover:text-accent focus-visible:outline-none",
+                  gridSize === "small" ? "text-xs" : "text-sm"
                 )}
               >
-                {song.artist || "Unknown Artist"}
+                {song.title || song.filename}
               </button>
-              <span className="shrink-0 text-[11px] tabular-nums text-textSoft">
-                {formatDuration(song.duration)}
-              </span>
-            </div>
 
-            {song.album &&
-              (song.album || "").trim().toLowerCase() !==
-                (song.title || song.filename || "").trim().toLowerCase() && (
+              <div className="mt-1 flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() =>
-                    onGoToAlbum?.(
-                      song.album || "Unknown Album",
-                      song.albumArtist || song.artist || "Unknown Artist"
-                    )
-                  }
                   className={clsx(
-                    "mt-1 block w-full truncate bg-transparent p-0 text-left text-textSoft/90 transition hover:text-text focus-visible:outline-none",
+                    "min-w-0 flex-1 truncate bg-transparent p-0 text-left text-textSoft transition hover:text-text focus-visible:outline-none",
                     gridSize === "small" ? "text-[11px]" : "text-xs"
                   )}
+                  onClick={() => onGoToArtist?.(song.artist || "Unknown Artist")}
                 >
-                  {song.album}
+                  {song.artist || "Unknown Artist"}
                 </button>
-              )}
-          </CardContent>
-        </Card>
-      ))}
+                <span className="shrink-0 text-[11px] tabular-nums text-textSoft">
+                  {formatDuration(song.duration)}
+                </span>
+              </div>
+
+              {song.album &&
+                (song.album || "").trim().toLowerCase() !==
+                  (song.title || song.filename || "").trim().toLowerCase() && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      onGoToAlbum?.(
+                        song.album || "Unknown Album",
+                        song.albumArtist || song.artist || "Unknown Artist"
+                      )
+                    }
+                    className={clsx(
+                      "mt-1 block w-full truncate bg-transparent p-0 text-left text-textSoft/90 transition hover:text-text focus-visible:outline-none",
+                      gridSize === "small" ? "text-[11px]" : "text-xs"
+                    )}
+                  >
+                    {song.album}
+                  </button>
+                )}
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {hasMore && (
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={() => onLoadMore?.()}
+          disabled={loadingMore}
+          className="w-full"
+        >
+          {loadingMore ? "Loading more..." : "Load more songs"}
+        </Button>
+      )}
     </div>
   );
 }

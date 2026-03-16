@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { fetchAlbums } from "../lib/api";
 import { CoverArt } from "../components/CoverArt";
 import { GridSkeleton, ListSkeleton } from "../components/LoadingSkeletons";
+import { VirtualizedList } from "../components/VirtualizedList";
 import { ViewModeToggle } from "../components/ViewModeToggle";
 import { useAbortableRequest } from "../hooks/useAbortableRequest";
 import { useAppStore } from "../store/appStore";
@@ -92,10 +93,13 @@ export function AlbumsPage() {
         className="view-mode-viewport"
       >
         {viewMode === "list" ? (
-          <div className="space-y-1">
-            {albums.map((album, index) => (
+          <VirtualizedList
+            items={albums}
+            estimateItemHeight={70}
+            onEndReached={hasMore && !loadingMore ? loadMore : undefined}
+            getItemKey={(album) => `${album.albumArtist}-${album.album}`}
+            renderItem={(album) => (
               <button
-                key={`${album.albumArtist}-${album.album}`}
                 type="button"
                 onClick={() =>
                   navigate(
@@ -104,8 +108,7 @@ export function AlbumsPage() {
                     )}`
                   )
                 }
-                className="view-mode-item flex w-full items-center gap-3 rounded-xl border border-[color:var(--border)] bg-panel px-3 py-2 text-left transition hover:border-accent/40 hover:bg-panelSoft/80"
-                style={{ "--vm-item-index": Math.min(index, 10) }}
+                className="flex w-full items-center gap-3 rounded-xl border border-[color:var(--border)] bg-panel px-3 py-2 text-left transition hover:border-accent/40 hover:bg-panelSoft/80"
               >
                 <CoverArt songId={album.artSongId} className="h-12 w-12 shrink-0" />
                 <div className="min-w-0 flex-1">
@@ -116,8 +119,8 @@ export function AlbumsPage() {
                   {album.year || "Unknown year"} · {album.songCount} tracks
                 </p>
               </button>
-            ))}
-          </div>
+            )}
+          />
         ) : (
           <div
             className={clsx(

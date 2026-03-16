@@ -6,6 +6,7 @@ import { createPlaylist, fetchPlaylists } from "../lib/api";
 import { getPlaylistWriteErrorMessage } from "../lib/playlistErrors";
 import { PlaylistArt } from "../components/PlaylistArt";
 import { GridSkeleton, ListSkeleton } from "../components/LoadingSkeletons";
+import { VirtualizedList } from "../components/VirtualizedList";
 import { ViewModeToggle } from "../components/ViewModeToggle";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
@@ -142,14 +143,15 @@ export function PlaylistsPage() {
         className="view-mode-viewport"
       >
         {viewMode === "list" ? (
-          <div className="space-y-1">
-            {playlists.map((playlist, index) => (
+          <VirtualizedList
+            items={playlists}
+            estimateItemHeight={68}
+            getItemKey={(playlist) => playlist.id}
+            renderItem={(playlist) => (
               <button
-                key={playlist.id}
                 type="button"
                 onClick={() => navigate(`/playlists/${playlist.id}`)}
-                className="view-mode-item flex w-full items-center gap-3 rounded-xl border border-[color:var(--border)] bg-panel px-3 py-2 text-left transition hover:border-accent/40 hover:bg-panelSoft/80"
-                style={{ "--vm-item-index": Math.min(index, 10) }}
+                className="flex w-full items-center gap-3 rounded-xl border border-[color:var(--border)] bg-panel px-3 py-2 text-left transition hover:border-accent/40 hover:bg-panelSoft/80"
               >
                 <PlaylistArt playlistId={playlist.id} className="h-12 w-12 shrink-0" />
                 <div className="min-w-0 flex-1">
@@ -157,8 +159,8 @@ export function PlaylistsPage() {
                   <p className="text-xs text-textSoft">{playlist.songCount || 0} songs</p>
                 </div>
               </button>
-            ))}
-          </div>
+            )}
+          />
         ) : (
           <div
             className={clsx(

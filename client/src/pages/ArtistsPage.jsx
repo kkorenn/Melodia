@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { fetchArtists } from "../lib/api";
 import { CoverArt } from "../components/CoverArt";
 import { GridSkeleton, ListSkeleton } from "../components/LoadingSkeletons";
+import { VirtualizedList } from "../components/VirtualizedList";
 import { ViewModeToggle } from "../components/ViewModeToggle";
 import { useAbortableRequest } from "../hooks/useAbortableRequest";
 import { useAppStore } from "../store/appStore";
@@ -71,14 +72,15 @@ export function ArtistsPage() {
         className="view-mode-viewport"
       >
         {viewMode === "list" ? (
-          <div className="space-y-1">
-            {artists.map((artist, index) => (
+          <VirtualizedList
+            items={artists}
+            estimateItemHeight={70}
+            getItemKey={(artist) => artist.artist}
+            renderItem={(artist) => (
               <button
-                key={artist.artist}
                 type="button"
                 onClick={() => navigate(`/artists/${encodeURIComponent(artist.artist)}`)}
-                className="view-mode-item flex w-full items-center gap-3 rounded-xl border border-[color:var(--border)] bg-panel px-3 py-2 text-left transition hover:border-accent/40 hover:bg-panelSoft/80"
-                style={{ "--vm-item-index": Math.min(index, 10) }}
+                className="flex w-full items-center gap-3 rounded-xl border border-[color:var(--border)] bg-panel px-3 py-2 text-left transition hover:border-accent/40 hover:bg-panelSoft/80"
               >
                 <CoverArt songId={artist.artSongId} className="h-12 w-12 shrink-0" />
                 <div className="min-w-0 flex-1">
@@ -93,8 +95,8 @@ export function ArtistsPage() {
                   <p>Last: {formatRelativeDate(artist.lastPlayed)}</p>
                 </div>
               </button>
-            ))}
-          </div>
+            )}
+          />
         ) : (
           <div
             className={clsx(
@@ -126,21 +128,26 @@ export function ArtistsPage() {
                   >
                     {artist.artist}
                   </h3>
-                    <p
-                      className={clsx(
-                        "mt-1 text-textSoft",
-                        gridSize === "small" ? "text-[11px]" : "text-xs"
-                      )}
-                    >
-                      {formatLargeNumber(Number(artist.songCount) || 0)} songs · {" "}
-                      {formatLargeNumber(Number(artist.albumCount) || 0)} albums
-                    </p>
-                    <p className={clsx("mt-1 text-textSoft", gridSize === "small" ? "text-[11px]" : "text-xs") }>
-                      {formatLargeNumber(Number(artist.totalPlays) || 0)} plays
-                    </p>
-                  </div>
-                </button>
-              ))}
+                  <p
+                    className={clsx(
+                      "mt-1 text-textSoft",
+                      gridSize === "small" ? "text-[11px]" : "text-xs"
+                    )}
+                  >
+                    {formatLargeNumber(Number(artist.songCount) || 0)} songs · {" "}
+                    {formatLargeNumber(Number(artist.albumCount) || 0)} albums
+                  </p>
+                  <p
+                    className={clsx(
+                      "mt-1 text-textSoft",
+                      gridSize === "small" ? "text-[11px]" : "text-xs"
+                    )}
+                  >
+                    {formatLargeNumber(Number(artist.totalPlays) || 0)} plays
+                  </p>
+                </div>
+              </button>
+            ))}
           </div>
         )}
       </div>

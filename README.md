@@ -225,17 +225,9 @@ What they do:
 - `npm run release:reset`: wipe local/private/runtime files (asks for confirmation)
 - `npm run release:reset:yes`: same reset without confirmation prompt
 - `npm start`: alias to `npm run dev`
+- `npm run lint`: run project lint checks
+- `npm run test`: run backend unit tests
 - `npm --prefix server run start`: run backend host mode
-- `npm run prisma:generate`: regenerate Prisma client for backend
-
-## Prisma Status
-
-Melodia now includes Prisma ORM (`server/prisma/schema.prisma`) and generated client.
-
-Current phase:
-- Settings read/write APIs use Prisma.
-- Playlist create/rename/delete/cover APIs use Prisma.
-- Scanner, streaming, and high-volume song/query endpoints remain on optimized SQL for now.
 
 ## Troubleshooting
 

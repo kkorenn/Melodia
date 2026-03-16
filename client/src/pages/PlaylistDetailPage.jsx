@@ -24,7 +24,6 @@ import {
 import { getPlaylistWriteErrorMessage } from "../lib/playlistErrors";
 import { PlaylistArt } from "../components/PlaylistArt";
 import { CoverArt } from "../components/CoverArt";
-import { SettingsLockedNotice } from "../components/SettingsLockedNotice";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { useDebouncedValue } from "../hooks/useDebouncedValue";

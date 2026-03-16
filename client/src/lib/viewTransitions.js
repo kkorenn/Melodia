@@ -22,7 +22,7 @@ export function withViewTransition(update) {
     document.startViewTransition(() => {
       update();
     });
-  } catch (error) {
+  } catch {
     update();
   }
 }

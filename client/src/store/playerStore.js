@@ -258,7 +258,7 @@ function getPreviousResult(state) {
 
 export const usePlayerStore = create(
   persist(
-    (set, get) => ({
+    (set) => ({
       queue: [],
       currentIndex: -1,
       isPlaying: false,
