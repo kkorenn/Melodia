@@ -1,0 +1,581 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXContainerItemProxy section */
+		5DD0CA332F73F9FE00AEF59A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 5DD0CA1D2F73F9FD00AEF59A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 5DD0CA242F73F9FD00AEF59A;
+			remoteInfo = melodia;
+		};
+		5DD0CA3D2F73F9FE00AEF59A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 5DD0CA1D2F73F9FD00AEF59A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 5DD0CA242F73F9FD00AEF59A;
+			remoteInfo = melodia;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		5DD0CA252F73F9FD00AEF59A /* melodia.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = melodia.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		5DD0CA322F73F9FE00AEF59A /* melodiaTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = melodiaTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		5DD0CA3C2F73F9FE00AEF59A /* melodiaUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = melodiaUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		5DD0CA272F73F9FD00AEF59A /* melodia */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = melodia;
+			sourceTree = "<group>";
+		};
+		5DD0CA352F73F9FE00AEF59A /* melodiaTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = melodiaTests;
+			sourceTree = "<group>";
+		};
+		5DD0CA3F2F73F9FE00AEF59A /* melodiaUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = melodiaUITests;
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		5DD0CA222F73F9FD00AEF59A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		5DD0CA2F2F73F9FE00AEF59A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		5DD0CA392F73F9FE00AEF59A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		5DD0CA1C2F73F9FD00AEF59A = {
+			isa = PBXGroup;
+			children = (
+				5DD0CA272F73F9FD00AEF59A /* melodia */,
+				5DD0CA352F73F9FE00AEF59A /* melodiaTests */,
+				5DD0CA3F2F73F9FE00AEF59A /* melodiaUITests */,
+				5DD0CA262F73F9FD00AEF59A /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		5DD0CA262F73F9FD00AEF59A /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				5DD0CA252F73F9FD00AEF59A /* melodia.app */,
+				5DD0CA322F73F9FE00AEF59A /* melodiaTests.xctest */,
+				5DD0CA3C2F73F9FE00AEF59A /* melodiaUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		5DD0CA242F73F9FD00AEF59A /* melodia */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 5DD0CA462F73F9FE00AEF59A /* Build configuration list for PBXNativeTarget "melodia" */;
+			buildPhases = (
+				5DD0CA212F73F9FD00AEF59A /* Sources */,
+				5DD0CA222F73F9FD00AEF59A /* Frameworks */,
+				5DD0CA232F73F9FD00AEF59A /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				5DD0CA272F73F9FD00AEF59A /* melodia */,
+			);
+			name = melodia;
+			packageProductDependencies = (
+			);
+			productName = melodia;
+			productReference = 5DD0CA252F73F9FD00AEF59A /* melodia.app */;
+			productType = "com.apple.product-type.application";
+		};
+		5DD0CA312F73F9FE00AEF59A /* melodiaTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 5DD0CA492F73F9FE00AEF59A /* Build configuration list for PBXNativeTarget "melodiaTests" */;
+			buildPhases = (
+				5DD0CA2E2F73F9FE00AEF59A /* Sources */,
+				5DD0CA2F2F73F9FE00AEF59A /* Frameworks */,
+				5DD0CA302F73F9FE00AEF59A /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				5DD0CA342F73F9FE00AEF59A /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				5DD0CA352F73F9FE00AEF59A /* melodiaTests */,
+			);
+			name = melodiaTests;
+			packageProductDependencies = (
+			);
+			productName = melodiaTests;
+			productReference = 5DD0CA322F73F9FE00AEF59A /* melodiaTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		5DD0CA3B2F73F9FE00AEF59A /* melodiaUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 5DD0CA4C2F73F9FE00AEF59A /* Build configuration list for PBXNativeTarget "melodiaUITests" */;
+			buildPhases = (
+				5DD0CA382F73F9FE00AEF59A /* Sources */,
+				5DD0CA392F73F9FE00AEF59A /* Frameworks */,
+				5DD0CA3A2F73F9FE00AEF59A /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				5DD0CA3E2F73F9FE00AEF59A /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				5DD0CA3F2F73F9FE00AEF59A /* melodiaUITests */,
+			);
+			name = melodiaUITests;
+			packageProductDependencies = (
+			);
+			productName = melodiaUITests;
+			productReference = 5DD0CA3C2F73F9FE00AEF59A /* melodiaUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		5DD0CA1D2F73F9FD00AEF59A /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2640;
+				LastUpgradeCheck = 2640;
+				TargetAttributes = {
+					5DD0CA242F73F9FD00AEF59A = {
+						CreatedOnToolsVersion = 26.4;
+					};
+					5DD0CA312F73F9FE00AEF59A = {
+						CreatedOnToolsVersion = 26.4;
+						TestTargetID = 5DD0CA242F73F9FD00AEF59A;
+					};
+					5DD0CA3B2F73F9FE00AEF59A = {
+						CreatedOnToolsVersion = 26.4;
+						TestTargetID = 5DD0CA242F73F9FD00AEF59A;
+					};
+				};
+			};
+			buildConfigurationList = 5DD0CA202F73F9FD00AEF59A /* Build configuration list for PBXProject "melodia" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 5DD0CA1C2F73F9FD00AEF59A;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 5DD0CA262F73F9FD00AEF59A /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				5DD0CA242F73F9FD00AEF59A /* melodia */,
+				5DD0CA312F73F9FE00AEF59A /* melodiaTests */,
+				5DD0CA3B2F73F9FE00AEF59A /* melodiaUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		5DD0CA232F73F9FD00AEF59A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		5DD0CA302F73F9FE00AEF59A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		5DD0CA3A2F73F9FE00AEF59A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		5DD0CA212F73F9FD00AEF59A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		5DD0CA2E2F73F9FE00AEF59A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		5DD0CA382F73F9FE00AEF59A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		5DD0CA342F73F9FE00AEF59A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 5DD0CA242F73F9FD00AEF59A /* melodia */;
+			targetProxy = 5DD0CA332F73F9FE00AEF59A /* PBXContainerItemProxy */;
+		};
+		5DD0CA3E2F73F9FE00AEF59A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 5DD0CA242F73F9FD00AEF59A /* melodia */;
+			targetProxy = 5DD0CA3D2F73F9FE00AEF59A /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		5DD0CA442F73F9FE00AEF59A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		5DD0CA452F73F9FE00AEF59A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		5DD0CA472F73F9FE00AEF59A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Melodia;
+				INFOPLIST_KEY_NSAppTransportSecurity = "{ NSAllowsArbitraryLoads = YES; };";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Melodia connects to your local network server.";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.koren.melodia;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		5DD0CA482F73F9FE00AEF59A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Melodia;
+				INFOPLIST_KEY_NSAppTransportSecurity = "{ NSAllowsArbitraryLoads = YES; };";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Melodia connects to your local network server.";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.koren.melodia;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		5DD0CA4A2F73F9FE00AEF59A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.koren.melodiaTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/melodia.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/melodia";
+			};
+			name = Debug;
+		};
+		5DD0CA4B2F73F9FE00AEF59A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.koren.melodiaTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/melodia.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/melodia";
+			};
+			name = Release;
+		};
+		5DD0CA4D2F73F9FE00AEF59A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.koren.melodiaUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = melodia;
+			};
+			name = Debug;
+		};
+		5DD0CA4E2F73F9FE00AEF59A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.koren.melodiaUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = melodia;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		5DD0CA202F73F9FD00AEF59A /* Build configuration list for PBXProject "melodia" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5DD0CA442F73F9FE00AEF59A /* Debug */,
+				5DD0CA452F73F9FE00AEF59A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		5DD0CA462F73F9FE00AEF59A /* Build configuration list for PBXNativeTarget "melodia" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5DD0CA472F73F9FE00AEF59A /* Debug */,
+				5DD0CA482F73F9FE00AEF59A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		5DD0CA492F73F9FE00AEF59A /* Build configuration list for PBXNativeTarget "melodiaTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5DD0CA4A2F73F9FE00AEF59A /* Debug */,
+				5DD0CA4B2F73F9FE00AEF59A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		5DD0CA4C2F73F9FE00AEF59A /* Build configuration list for PBXNativeTarget "melodiaUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5DD0CA4D2F73F9FE00AEF59A /* Debug */,
+				5DD0CA4E2F73F9FE00AEF59A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 5DD0CA1D2F73F9FD00AEF59A /* Project object */;
+}
